@@ -1,6 +1,7 @@
-def main():
-    print("Hello from project-planner-naii!")
-
+#!/usr/bin/env python3
+"""
+Project Planner - Main Entry Point
+"""
 
 if __name__ == "__main__":
-    main()
+    import run  # This will execute the run.py script

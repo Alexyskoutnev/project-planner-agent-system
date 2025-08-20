@@ -1,41 +1,61 @@
-from agents import Agent, handoff, tool, function_tool
+from agents import Agent, handoff, function_tool
 from domain_obj import ProjectState
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- Tools shared by agents ---
 
 @function_tool  
-def record_info(state: ProjectState, 
-                **kwargs):
+def record_info(project_name: str = None, 
+                goal: str = None,
+                audience: str = None, 
+                constraints: list[str] = None,
+                key_tasks: list[str] = None,
+                note: str = None):
     """
     Record any structured fields extracted by the Asker.
-    Accepted keys: project_name, goal, audience, constraints, key_tasks, note
+    Accepted fields: project_name, goal, audience, constraints, key_tasks, note
     """
-    if "project_name" in kwargs and kwargs["project_name"]:
-        state.project_name = kwargs["project_name"]
-    if "goal" in kwargs and kwargs["goal"]:
-        state.goal = kwargs["goal"]
-    if "audience" in kwargs and kwargs["audience"]:
-        state.audience = kwargs["audience"]
-    if "constraints" in kwargs and kwargs["constraints"]:
+    # Get the current state from context (this will be injected by the framework)
+    logger.info(f"Recording info: {project_name}, {goal}, {audience}, {constraints}, {key_tasks}, {note}")
+    from agents import get_current_span
+    ctx = get_current_span().context
+    state = ctx.state
+    
+    if project_name:
+        state.project_name = project_name
+    if goal:
+        state.goal = goal
+    if audience:
+        state.audience = audience
+    if constraints:
         state.constraints.extend(
-            c for c in kwargs["constraints"] if c and c not in state.constraints
+            c for c in constraints if c and c not in state.constraints
         )
-    if "key_tasks" in kwargs and kwargs["key_tasks"]:
+    if key_tasks:
         state.key_tasks.extend(
-            t for t in kwargs["key_tasks"] if t and t not in state.key_tasks
+            t for t in key_tasks if t and t not in state.key_tasks
         )
-    if "note" in kwargs and kwargs["note"]:
-        state.notes.append(kwargs["note"])
+    if note:
+        state.notes.append(note)
     return {"ok": True, "missing": state.missing_fields()}
 
 @function_tool
-def is_done(state: ProjectState) -> bool:
+def is_done() -> bool:
     """Return True if we have enough info to write the plan."""
+    from agents import get_current_span
+    ctx = get_current_span().context
+    state = ctx.state
     return len(state.missing_fields()) == 0
 
 @function_tool
-def render_markdown(state: ProjectState) -> str:
+def render_markdown() -> str:
     """Create the final Markdown doc."""
+    from agents import get_current_span
+    ctx = get_current_span().context
+    state = ctx.state
+    
     title = state.project_name or "Untitled Project"
     lines = [
         f"# {title}",
@@ -53,33 +73,7 @@ def render_markdown(state: ProjectState) -> str:
         lines += ["", "## Notes"] + [f"- {n}" for n in state.notes]
     return "\n".join(lines)
 
-# --- Agent 3: Asker ("Interviewer") ---
-
-Asker = Agent(
-    name="Asker",
-    instructions=(
-        "You are the interviewing face of the chat. Ask one concise question at a time. "
-        "When the user answers, extract fields with `record_info` (use function args!) and "
-        "then yield control back to Orchestrator. Keep a helpful, pragmatic tone. "
-        "Focus first on: project_name, goal, audience. Then gather constraints, key_tasks."
-    ),
-    tools=[record_info],           # Asker only needs to write info
-    allow_handoff=True
-)
-
-# --- Agent 2: Scribe ("Documenter") ---
-
-Scribe = Agent(
-    name="Scribe",
-    instructions=(
-        "You never talk to the user. You synthesize the final Markdown using `render_markdown` "
-        "and return it as the single output message content."
-    ),
-    tools=[render_markdown],
-    allow_handoff=False
-)
-
-# --- Agent 1: Orchestrator ("Project Manager") ---
+# --- Helper function ---
 
 def _missing_prompt(missing: list[str]) -> str:
     order = ["project_name", "goal", "audience", "constraints", "key_tasks"]
@@ -94,18 +88,52 @@ def _missing_prompt(missing: list[str]) -> str:
     }
     return mapping.get(field, "Could you add more detail?")
 
-Orchestrator = Agent(
-    name="Orchestrator",
+# --- Agent 3: Asker ("Interviewer") ---
+
+Asker = Agent(
+    name="Asker",
     instructions=(
-        "You do not speak to the user. You decide whether more info is needed. "
-        "Use `is_done` to check completeness. If not done, hand off to Asker with a single "
-        "clear question to ask the user (put it in `message_to_user`). If done, hand off to Scribe."
+        "You are a friendly project planning assistant having a conversation with a user about their project. "
+        
+        "Your job is to: "
+        "1. Respond naturally and conversationally to what the user says "
+        "2. Extract any project information from their message and save it using record_info "
+        "3. Ask engaging follow-up questions to learn more "
+        
+        "Information to gather: project name, goals, target audience, constraints, and key tasks. "
+        
+        "IMPORTANT: Always use record_info when you learn something new about the project. "
+        "Be helpful, engaging, and show genuine interest in their project. "
+        "Keep responses concise but friendly."
+    ),
+    tools=[record_info],
+)
+
+# --- Agent 2: Scribe ("Documenter") ---
+
+Scribe = Agent(
+    name="Scribe",
+    instructions=(
+        "You are a professional document writer. Your job is to create a comprehensive project plan document. "
+        
+        "Use the `render_markdown` tool to generate a well-formatted project document based on all the "
+        "information that has been collected during the conversation. "
+        
+        "Make the document professional, complete, and actionable. Include all available project details."
+    ),
+    tools=[render_markdown],
+)
+
+# --- Agent 1: Orchestrator ("Project Manager") ---
+
+Orchestrator = Agent(
+    name="Orchestrator", 
+    instructions=(
+        "You do not speak to the user. You are the project manager that coordinates the workflow. "
+        "First, use `is_done` to check if we have all required information. "
+        "If we have everything, hand off to Scribe to generate the final document. "
+        "If we're missing information, hand off to Asker to gather more details from the user."
     ),
     tools=[is_done],
-    allow_handoff=True,
-    # A small controller to decide next step after each turn:
-    controller=lambda ctx: (
-        handoff("Scribe") if ctx.tools.is_done()
-        else handoff("Asker", message_to_user=_missing_prompt(ctx.state.missing_fields()))
-    )
+    handoffs=["Asker", "Scribe"]
 )
