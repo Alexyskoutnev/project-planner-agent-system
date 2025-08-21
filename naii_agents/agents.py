@@ -1,5 +1,5 @@
 from agents import Agent, WebSearchTool
-from naii_agents.tools import overwrite_doc, read_current_doc, get_current_date
+from .tools import overwrite_doc, read_current_doc, get_current_date
 
 product_manager = Agent(
     name="Product Manager",

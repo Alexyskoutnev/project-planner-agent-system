@@ -691,12 +691,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "openai-agents" },
+    { name = "python-dotenv" },
     { name = "streamlit" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "openai-agents", specifier = ">=0.2.8" },
+    { name = "python-dotenv" },
     { name = "streamlit", specifier = ">=1.48.1" },
 ]
 

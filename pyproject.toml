@@ -7,4 +7,8 @@ requires-python = ">=3.11"
 dependencies = [
     "openai-agents>=0.2.8",
     "streamlit>=1.48.1",
+    "python-dotenv",
 ]
+
+[tool.setuptools.packages.find]
+include = ["naii_agents*"]

@@ -44,7 +44,7 @@ def read_current_doc() -> str:
 def get_current_date() -> str:
     "Gets the current time for the document."
     import datetime
-    return datetime.now().strftime("%Y-%m-%d")
+    return datetime.datetime.now().strftime("%Y-%m-%d")
 
 def read_doc() -> str:
     try:
