@@ -4,8 +4,8 @@ import asyncio
 import uuid
 import streamlit as st
 from agents import Runner, SQLiteSession
-from naii_agents.agents import product_manager, CURRENT_WORKING_DOC
-from naii_agents.tools import read_doc
+from naii_agents.agents import product_manager
+from naii_agents.tools import read_doc, CURRENT_WORKING_DOC
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -41,6 +41,21 @@ with col2:
     logging.info(f"Current document content:\n{doc_content}")
     with doc_container:
         st.markdown(doc_content)
+        try:
+            if os.path.exists(CURRENT_WORKING_DOC) and os.path.getsize(CURRENT_WORKING_DOC) > 0:
+                with open(CURRENT_WORKING_DOC, "rb") as f:
+                    file_bytes = f.read()
+                st.download_button(
+                    label="Download Document",
+                    data=file_bytes,
+                    file_name=os.path.basename(CURRENT_WORKING_DOC),
+                    mime="text/markdown",
+                )
+            else:
+                st.info("No document available to download")
+        except Exception as e:
+            logging.error(f"Error preparing document for download: {e}")
+            st.error("Could not prepare document for download.")
 
 user_msg = st.chat_input("Tell me about your project requirements...")
 

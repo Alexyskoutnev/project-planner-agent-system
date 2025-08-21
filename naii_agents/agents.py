@@ -1,13 +1,11 @@
-import os
-import logging
-from agents import Agent, Runner, SQLiteSession, function_tool, WebSearchTool
+from agents import Agent, WebSearchTool
 from naii_agents.tools import overwrite_doc, read_current_doc, get_current_date
 
 product_manager = Agent(
     name="Product Manager",
     model="gpt-5",
     instructions=(
-        "You are the Senior Product Manager and PROJECT ORCHESTRATOR for NAI hardware systems. You are the ONLY agent that communicates directly with the user and guide the entire project plan direction.\n\n"
+        "You are the Senior Product Manager and PROJECT ORCHESTRATOR for NAI (North Alantic Industries) hardware systems. You are the ONLY agent that communicates directly with the user and guide the entire project plan direction.\n\n"
         
         "**CORE RESPONSIBILITY:** Create a comprehensive Product Requirements Document (PRD) and orchestrate the project workflow.\n\n"
         
@@ -36,10 +34,11 @@ product_manager = Agent(
         "- Translate technical jargon for user understanding\n"
         "- Use WebSearchTool for NAI-specific technology questions\n"
         "- Guide the user logically through the project planning process\n"
+        "- If ask a date, use get_current_date() to get the current date and use that in your response for project planning\n"
         
         "**DECISION MATRIX:**\n"
-        "- Need technical expertise? → transfer_to_engineer\n"
-        "- Ready to document progress? → transfer_to_pmo\n"
+        "- Need technical expertise or a specific NAI product question? → transfer_to_engineer\n"
+        "- Ready to document progress (show document if user asks)? → transfer_to_pmo\n"
         "- Missing user input? → Ask specific questions\n"
         "- Project plan complete? → Present summary and next steps"
     ),
@@ -63,10 +62,9 @@ engineer = Agent(
         "   - 'NAI 75-SBC specifications Intel Core i7'\n"
         "   - 'NAI MIL-STD-1553 COSA module'\n"
         "   - 'NAI 3U OpenVPX power supply specifications'\n\n"
-        "After gathering architectural decisions, hand off to PMO to update the project document.\n"
-        "For high-level planning questions, hand off back to Product Manager."
+        "For high-level planning questions or if you need more information, hand off back to Product Manager."
     ),
-    tools=[read_current_doc, WebSearchTool(), get_current_date],
+    tools=[read_current_doc, get_current_date, WebSearchTool()],
 )
 
 
@@ -101,27 +99,26 @@ pmo = Agent(
 ## NAI Project Planning Agent Workflow ##
 User Input
     ↓
-📋 PRODUCT MANAGER (Project Orchestrator)
+PRODUCT MANAGER (Project Orchestrator)
 │  • Gathers requirements & guides project direction
 │  • Decides next workflow step based on needs
 │  • Handles all user communication & feedback translation
     ↓                                    ↓
-🔧 ENGINEER                         📝 PMO
-   (World-Class NAI Expert)            (Professional Project Scribe)
+🔧 ENGINEER                            PMO
+   (World-Class NAI Engineer)            (Professional Project Scribe)
    • Deep NAI technical knowledge      • Maintains official project plan
-   • OpenVPX/COSA® expertise          • Intelligent content mapping
-   • MIL-STD compliance mastery       • Gap analysis & feedback
-   • Risk assessment & mitigation     • Professional documentation
-   • WebSearch for current specs      • Timestamps & version control
+   • OpenVPX/COSA® expertise           • Intelligent content mapping
+   • MIL-STD compliance mastery        • Gap analysis & feedback
+   • Risk assessment & mitigation      • Professional documentation
+   • WebSearch for current specs       • Timestamps & version control
     ↓                                    ↓
-    📋 PRODUCT MANAGER ← → 📋 PRODUCT MANAGER
+    PRODUCT MANAGER ← →  PRODUCT MANAGER
     │  • Receives technical feedback    │  • Receives documentation status
     │  • Translates for user           │  • Identifies missing information
     │  • Decides if more info needed   │  • Guides next collection phase
     ↓
 💬 Response to User
 """
-product_manager.handoffs = [engineer, pmo]  # PM can choose: get eng input OR write doc
+product_manager.handoffs = [engineer, pmo]   # PM can choose: get eng input OR write doc
 engineer.handoffs = [product_manager]        # Engineer always reports back to PM
 pmo.handoffs = [product_manager]             # PMO always reports back to PM
-

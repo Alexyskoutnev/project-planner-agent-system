@@ -1,1 +1,40 @@
+# ---- Python standard ignores ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.manifest
+*.spec
+
+# ---- Virtual environments ----
+.env
 .venv
+venv/
+ENV/
+env/
+pip-wheel-metadata/
+
+# ---- IDE / editor files ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ---- Logs & misc ----
+*.log
+*.out
+*.err
+
+# ---- Project-specific ignores ----
+nai_conversations.sqlite
+nai_conversations.sqlite-shm
+nai_conversations.sqlite-wal
+naii_agents/__pycache__/
+
+.venv/**
