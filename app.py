@@ -23,6 +23,8 @@ if os.getenv("OPENAI_API_KEY"):
 elif "OPENAI_API_KEY" in st.secrets:
     OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
+print(f"OPENAI_API_KEY: {OPENAI_API_KEY}")
+
 # Check if API key is available
 if not OPENAI_API_KEY:
     st.error("🚨 **OpenAI API Key Missing**")
