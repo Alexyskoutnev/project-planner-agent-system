@@ -38,3 +38,4 @@ nai_conversations.sqlite-wal
 naii_agents/__pycache__/
 
 .venv/**
+.streamlit/secrets.toml
