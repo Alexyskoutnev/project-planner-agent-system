@@ -1,0 +1,10 @@
+# Core agent system
+openai-agents>=0.2.8
+
+# Web frameworks
+streamlit>=1.48.1
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Utilities
+python-dotenv

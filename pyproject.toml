@@ -8,6 +8,8 @@ dependencies = [
     "openai-agents>=0.2.8",
     "streamlit>=1.48.1",
     "python-dotenv",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
 ]
 
 [tool.setuptools.packages.find]

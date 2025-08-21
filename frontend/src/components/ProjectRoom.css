@@ -1,0 +1,29 @@
+.project-room {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 100vh;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f0f2f5;
+}
+
+.chat-section,
+.document-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .project-room {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .project-room {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+}
