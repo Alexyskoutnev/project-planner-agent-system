@@ -10,9 +10,39 @@ from naii_agents.tools import read_doc, CURRENT_WORKING_DOC
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Load in API key from .env file
+# Load environment variables
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Try multiple sources for API key
+OPENAI_API_KEY = (
+    os.getenv("OPENAI_API_KEY") or 
+    st.secrets.get("OPENAI_API_KEY", None) if hasattr(st, 'secrets') else None
+)
+
+# Check if API key is available
+if not OPENAI_API_KEY:
+    st.error("🚨 **OpenAI API Key Missing**")
+    st.markdown("""
+    Your OpenAI API key is not configured. Please set it up using one of these methods:
+    
+    **For Streamlit Cloud:**
+    1. Go to your [Streamlit Cloud Dashboard](https://share.streamlit.io/)
+    2. Find your app and click "Settings" 
+    3. Go to "Secrets" section
+    4. Add: `OPENAI_API_KEY = "sk-your-key-here"`
+    
+    **For local development:**
+    1. Create a `.env` file in your project root
+    2. Add: `OPENAI_API_KEY=sk-your-key-here`
+    
+    **Get an API key:**
+    - Visit [OpenAI Platform](https://platform.openai.com/api-keys)
+    - Create a new API key
+    """)
+    st.stop()
+
+# Set the API key for the OpenAI client
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
 st.set_page_config(page_title="NAI System Configurator AI", page_icon="🚀", layout="wide")
 st.title("NAI Project Agent")
