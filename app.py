@@ -14,10 +14,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 load_dotenv()
 
 # Try multiple sources for API key
-OPENAI_API_KEY = (
-    os.getenv("OPENAI_API_KEY") or 
-    st.secrets.get("OPENAI_API_KEY", None) if hasattr(st, 'secrets') else None
-)
+OPENAI_API_KEY = None
+
+# Try environment variable first
+if os.getenv("OPENAI_API_KEY"):
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Then try Streamlit secrets
+elif "OPENAI_API_KEY" in st.secrets:
+    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 # Check if API key is available
 if not OPENAI_API_KEY:
