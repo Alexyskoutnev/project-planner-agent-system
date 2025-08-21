@@ -2,12 +2,17 @@ import os
 import logging
 import asyncio
 import uuid
+from dotenv import load_dotenv
 import streamlit as st
 from agents import Runner, SQLiteSession
 from naii_agents.agents import product_manager
 from naii_agents.tools import read_doc, CURRENT_WORKING_DOC
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+# Load in API key from .env file
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 st.set_page_config(page_title="NAI System Configurator AI", page_icon="🚀", layout="wide")
 st.title("NAI Project Agent")
