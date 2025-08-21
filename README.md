@@ -1,48 +1,18 @@
-# Project Planner chatbox
-- Guide users through idea development
-- Provide recommendations
-- Automatically save structured information
+# NAI Project Planner
 
-Agent Architecture
-# Agent 1: The Orchestrator Agent (The "Project Manager")
-This is the master controller. It doesn't talk to the user directly but manages the workflow and state of the project planning session.
+Lightweight Streamlit app that helps users define hardware projects via an agent-driven chat and saves a structured Markdown project document.
 
-Core Responsibility: Control the flow of the conversation.
+Quick start
+- Install dependencies (Python 3.10+): `pip install -r requirements.txt` or use `pip install -e .` if available.
+- Run the app: `streamlit run app.py`
 
-Actions:
+What it does
+- Conversational Product Manager agent guides users through requirements gathering.
+- Engineer and PMO agents produce and maintain a Markdown project document at `project_docs/NAI_system_configuration.md`.
+- Use the UI to view and download the generated project document.
 
-Receives initial input from the user.
-
-Delegates the task of asking questions to the Asker Agent.
-
-Keeps track of the information gathered (e.g., project name, goals, tasks).
-
-Decides when enough information has been collected to generate a plan.
-
-Once the information-gathering phase is complete, it hands over the collected data to the Scribe Agent.
-
-# Agent 3: The Asker Agent (The "Interviewer")
-This is the conversational "face" of your chatbox. It's an expert at dialogue, guiding the user, and providing helpful advice.
-
-Core Responsibility: Interact with the user to develop the idea.
-
-Actions:
-
-Asks guiding questions to help the user flesh out their project ("What is the main goal of this project?", "Who is the target audience?").
-
-Listens to the user's responses and extracts key information.
-
-Passes this structured information back to the Orchestrator Agent after each interaction.
-
-# Agent 2: The Scribe Agent (The "Documenter")
-This agent is a specialist in synthesis and formatting. It doesn't talk to the user; it just takes raw data and turns it into a polished, structured document.
-
-Core Responsibility: Record and structure the final output.
-
-Actions:
-
-Receives the complete set of notes and conversational data from the Orchestrator Agent.
-
-Analyzes the entire conversation.
-
-Generates a well-formatted project document (e.g., a Markdown file, a JSON object, a Notion page).
+Layout
+- `app.py`: Streamlit frontend and session handling
+- `naii_agents/agents.py`: Agent definitions and workflows
+- `naii_agents/tools.py`: Document helpers (read/overwrite current doc)
+- `project_docs/`: Generated Markdown project document
