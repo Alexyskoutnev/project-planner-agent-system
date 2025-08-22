@@ -1,337 +1,378 @@
-import sqlite3
-import json
 import logging
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
-from contextlib import contextmanager
+from sqlmodel import SQLModel, Field, Column, JSON, create_engine, Session
+from datetime import datetime, timezone
+from typing import Optional
 
-logger = logging.getLogger(__name__)
+class Project(SQLModel, table=True):
+    __tablename__ = "projects"
+    
+    project_id: str = Field(primary_key=True)
+    created_at_ts: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    updated_at_ts: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+
+
+class Document(SQLModel, table=True):
+    __tablename__ = "documents"
+    
+    document_id: str = Field(primary_key=True)
+    content: str = Field(default="")
+    updated_at_ts: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    project_id: str = Field(foreign_key="projects.project_id")
+
+
+class UserSession(SQLModel, table=True):
+    __tablename__ = "sessions"
+    
+    session_id: str = Field(primary_key=True)
+    project_id: str
+    user_name: Optional[str] = Field(default=None)
+    joined_at_ts: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    last_activity_ts: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    is_active: bool = Field(default=True)
+
+
+class Conversation(SQLModel, table=True):
+    __tablename__ = "conversations"
+    
+    conversation_id: str = Field(primary_key=True)
+    project_id: str = Field(foreign_key="projects.project_id")
+    session_id: Optional[str] = Field(default=None)  # Optional: track which session started this conversation
+    timestamp_ts: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    messages: Optional[list[dict[str, str]]] = Field(default_factory=list, sa_column=Column(JSON))
+    is_active: bool = Field(default=True)  # Track if conversation is still active
+
+
+class DatabaseManager:
+    def __init__(self, database_url: str = "sqlite:///project_database.db"):
+        self.database_url = database_url
+        self.engine = create_engine(database_url, echo=False)
+        self.create_tables()
+    
+    def create_tables(self):
+        SQLModel.metadata.create_all(self.engine)
+        logging.info(f"Database created: {self.database_url}")
+        logging.info("Tables created: projects, documents, sessions, conversations")
+    
+    def get_session(self):
+        return Session(self.engine)
+    
+    def drop_all_tables(self):
+        SQLModel.metadata.drop_all(self.engine)
+        logging.info("All tables dropped")
+    
+    def recreate_tables(self):
+        self.drop_all_tables()
+        self.create_tables()
+
+
+class ProjectCRUD:
+    def __init__(self, db_manager: DatabaseManager):
+        self.db = db_manager
+    
+    def create(self, project_id: str, created_at_ts: int = None, updated_at_ts: int = None) -> bool:
+        try:
+            with self.db.get_session() as session:
+                project = Project(
+                    project_id=project_id,
+                    created_at_ts=created_at_ts if created_at_ts else int(datetime.now(timezone.utc).timestamp()),
+                    updated_at_ts=updated_at_ts if updated_at_ts else int(datetime.now(timezone.utc).timestamp())
+                )
+                session.add(project)
+                session.commit()
+                return True
+        except Exception as e:
+            print(f"Error creating project: {e}")
+            return False
+    
+    def get(self, project_id: str) -> Optional[Project]:
+        with self.db.get_session() as session:
+            return session.get(Project, project_id)
+    
+    def update_timestamp(self, project_id: str) -> bool:
+        try:
+            with self.db.get_session() as session:
+                project = session.get(Project, project_id)
+                if project:
+                    project.updated_at_ts = int(datetime.now(timezone.utc).timestamp())
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error updating project: {e}")
+            return False
+    
+    def delete(self, project_id: str) -> bool:
+        try:
+            with self.db.get_session() as session:
+                project = session.get(Project, project_id)
+                if project:
+                    session.delete(project)
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error deleting project: {e}")
+            return False
+    
+    def list_all(self) -> list[Project]:
+        with self.db.get_session() as session:
+            return session.query(Project).all()
+
+
+class DocumentCRUD:
+    def __init__(self, db_manager: DatabaseManager):
+        self.db = db_manager
+    
+    def create(self, document_id: str, content: str, project_id: str) -> bool:
+        try:
+            with self.db.get_session() as session:
+                document = Document(
+                    document_id=document_id,
+                    content=content,
+                    project_id=project_id
+                )
+                session.add(document)
+                session.commit()
+                return True
+        except Exception as e:
+            print(f"Error creating document: {e}")
+            return False
+    
+    def get(self, document_id: str) -> Optional[Document]:
+        with self.db.get_session() as session:
+            return session.get(Document, document_id)
+    
+    def update_content(self, document_id: str, content: str) -> bool:
+        try:
+            with self.db.get_session() as session:
+                document = session.get(Document, document_id)
+                if document:
+                    document.content = content
+                    document.updated_at_ts = int(datetime.now(timezone.utc).timestamp())
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error updating document: {e}")
+            return False
+
+
+class SessionCRUD:
+    def __init__(self, db_manager: DatabaseManager):
+        self.db = db_manager
+    
+    def create(self, session_id: str, project_id: str, user_name: str = None) -> bool:
+        try:
+            with self.db.get_session() as session:
+                user_session = UserSession(
+                    session_id=session_id,
+                    project_id=project_id,
+                    user_name=user_name
+                )
+                session.add(user_session)
+                session.commit()
+                return True
+        except Exception as e:
+            print(f"Error creating session: {e}")
+            return False
+    
+    def get(self, session_id: str) -> Optional[UserSession]:
+        with self.db.get_session() as session:
+            return session.get(UserSession, session_id)
+    
+    def update_activity(self, session_id: str) -> bool:
+        try:
+            with self.db.get_session() as session:
+                user_session = session.get(UserSession, session_id)
+                if user_session:
+                    user_session.last_activity_ts = int(datetime.now(timezone.utc).timestamp())
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error updating session activity: {e}")
+            return False
+    
+    def set_inactive(self, session_id: str) -> bool:
+        try:
+            with self.db.get_session() as session:
+                user_session = session.get(UserSession, session_id)
+                if user_session:
+                    user_session.is_active = False
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error setting session inactive: {e}")
+            return False
+    
+    def get_active_by_project(self, project_id: str) -> list[UserSession]:
+        with self.db.get_session() as session:
+            return session.query(UserSession).filter(
+                UserSession.project_id == project_id,
+                UserSession.is_active == True
+            ).all()
+
+
+class ConversationCRUD:
+    def __init__(self, db_manager: DatabaseManager):
+        self.db = db_manager
+    
+    def create(self, conversation_id: str, project_id: str, session_id: str = None, messages: list[dict[str, str]] = None) -> bool:
+        """Create a new conversation"""
+        try:
+            with self.db.get_session() as session:
+                conversation = Conversation(
+                    conversation_id=conversation_id,
+                    project_id=project_id,
+                    session_id=session_id,
+                    messages=messages or []
+                )
+                session.add(conversation)
+                session.commit()
+                return True
+        except Exception as e:
+            print(f"Error creating conversation: {e}")
+            return False
+    
+    def get(self, conversation_id: str) -> Optional[Conversation]:
+        """Get conversation by ID"""
+        with self.db.get_session() as session:
+            return session.get(Conversation, conversation_id)
+    
+    def add_message(self, conversation_id: str, role: str, content: str) -> bool:
+        """Add a message to a specific conversation"""
+        try:
+            with self.db.get_session() as session:
+                conversation = session.get(Conversation, conversation_id)
+                if conversation:
+                    if conversation.messages is None:
+                        conversation.messages = []
+                    conversation.messages.append({
+                        "role": role, 
+                        "content": content,
+                        "timestamp": int(datetime.now(timezone.utc).timestamp())
+                    })
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error adding message to conversation {conversation_id}: {e}")
+            return False
+    
+    def get_by_project(self, project_id: str) -> list[Conversation]:
+        """Get all conversations for a project"""
+        with self.db.get_session() as session:
+            return session.query(Conversation).filter(Conversation.project_id == project_id).all()
+    
+    def get_active_by_project(self, project_id: str) -> list[Conversation]:
+        """Get all active conversations for a project"""
+        with self.db.get_session() as session:
+            return session.query(Conversation).filter(
+                Conversation.project_id == project_id,
+                Conversation.is_active == True
+            ).all()
+    
+    def get_by_session(self, session_id: str) -> list[Conversation]:
+        """Get all conversations for a specific session"""
+        with self.db.get_session() as session:
+            return session.query(Conversation).filter(Conversation.session_id == session_id).all()
+    
+    def set_inactive(self, conversation_id: str) -> bool:
+        """Mark conversation as inactive"""
+        try:
+            with self.db.get_session() as session:
+                conversation = session.get(Conversation, conversation_id)
+                if conversation:
+                    conversation.is_active = False
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error setting conversation inactive: {e}")
+            return False
+    
+    def get_latest_by_project(self, project_id: str) -> Optional[Conversation]:
+        """Get the most recent conversation for a project"""
+        with self.db.get_session() as session:
+            return session.query(Conversation).filter(
+                Conversation.project_id == project_id
+            ).order_by(Conversation.timestamp_ts.desc()).first()
+    
+    def clear_messages(self, conversation_id: str) -> bool:
+        """Clear all messages from a conversation"""
+        try:
+            with self.db.get_session() as session:
+                conversation = session.get(Conversation, conversation_id)
+                if conversation:
+                    conversation.messages = []
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error clearing messages: {e}")
+            return False
+    
+    def get_message_count(self, conversation_id: str) -> int:
+        """Get the number of messages in a conversation"""
+        conversation = self.get(conversation_id)
+        return len(conversation.messages) if conversation and conversation.messages else 0
+
 
 class ProjectDatabase:
+    def __init__(self, database_url: str = "sqlite:///project_database.db"):
+        self.db_manager = DatabaseManager(database_url)
+        self.projects = ProjectCRUD(self.db_manager)
+        self.documents = DocumentCRUD(self.db_manager)
+        self.sessions = SessionCRUD(self.db_manager)
+        self.conversations = ConversationCRUD(self.db_manager)
     
-    def __init__(self, 
-                 db_path: str = "project_planning.db"):
-        self.db_path = db_path
-        self.init_database()
+    def get_session(self):
+        return self.db_manager.get_session()
     
-    def init_database(self):
-        """Initialize database with required tables"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Projects table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS projects (
-                    id TEXT PRIMARY KEY,
-                    name TEXT,
-                    description TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # Project documents table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS project_documents (
-                    project_id TEXT PRIMARY KEY,
-                    content TEXT NOT NULL,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES projects(id)
-                )
-            """)
-            
-            # User sessions table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS user_sessions (
-                    session_id TEXT PRIMARY KEY,
-                    project_id TEXT NOT NULL,
-                    user_name TEXT,
-                    user_id TEXT,
-                    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    is_active BOOLEAN DEFAULT 1,
-                    FOREIGN KEY (project_id) REFERENCES projects(id)
-                )
-            """)
-            
-            # Conversation history table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS conversation_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    project_id TEXT NOT NULL,
-                    session_id TEXT,
-                    role TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (project_id) REFERENCES projects(id),
-                    FOREIGN KEY (session_id) REFERENCES user_sessions(session_id)
-                )
-            """)
-            
-            # Create indexes for better performance
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_project ON user_sessions(project_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_active ON user_sessions(is_active)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_project ON conversation_history(project_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_history_timestamp ON conversation_history(timestamp)")
-            
-            conn.commit()
-            logger.info("Database initialized successfully")
+    def drop_all_tables(self):
+        self.db_manager.drop_all_tables()
     
-    @contextmanager
-    def get_connection(self):
-        """Context manager for database connections"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Enable dict-like access to rows
-        try:
-            yield conn
-        finally:
-            conn.close()
+    def recreate_tables(self):
+        self.db_manager.recreate_tables()
+
+
+# Example usage showing the fixed conversation workflow
+if __name__ == "__main__":
+    db = ProjectDatabase("sqlite:///project_database.db")
+    db.recreate_tables()
     
-    # Project management
-    def create_project(self, project_id: str, name: str = None, description: str = None) -> bool:
-        """Create a new project"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR IGNORE INTO projects (id, name, description)
-                    VALUES (?, ?, ?)
-                """, (project_id, name or f"Project {project_id}", description))
-                
-                # Initialize empty document
-                cursor.execute("""
-                    INSERT OR IGNORE INTO project_documents (project_id, content)
-                    VALUES (?, ?)
-                """, (project_id, "# Project Plan\n\nWaiting for project details..."))
-                
-                conn.commit()
-                return cursor.rowcount > 0
-        except Exception as e:
-            logger.error(f"Error creating project {project_id}: {e}")
-            return False
+    # Create project and session
+    db.projects.create("test_project")
+    db.sessions.create("test_session", "test_project", "Alice")
     
-    def get_project(self, project_id: str) -> Optional[Dict]:
-        """Get project details"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT * FROM projects WHERE id = ?
-                """, (project_id,))
-                row = cursor.fetchone()
-                return dict(row) if row else None
-        except Exception as e:
-            logger.error(f"Error getting project {project_id}: {e}")
-            return None
+    # Create conversation tied to project and session
+    db.conversations.create("test_conversation", "test_project", "test_session")
     
-    def list_projects(self) -> List[Dict]:
-        """List all projects"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT p.*, 
-                           COUNT(DISTINCT us.session_id) as active_users,
-                           MAX(ch.timestamp) as last_activity
-                    FROM projects p
-                    LEFT JOIN user_sessions us ON p.id = us.project_id AND us.is_active = 1
-                    LEFT JOIN conversation_history ch ON p.id = ch.project_id
-                    GROUP BY p.id
-                    ORDER BY p.updated_at DESC
-                """)
-                return [dict(row) for row in cursor.fetchall()]
-        except Exception as e:
-            logger.error(f"Error listing projects: {e}")
-            return []
+    # Add messages to the specific conversation
+    db.conversations.add_message("test_conversation", "user", "Hello, I need help")
+    db.conversations.add_message("test_conversation", "assistant", "I'd be happy to help! What do you need?")
+    db.conversations.add_message("test_conversation", "user", "Can you explain this project?")
     
-    # Document management
-    def save_document(self, project_id: str, content: str) -> bool:
-        """Save document content for a project"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Ensure project exists
-                self.create_project(project_id)
-                
-                # Update document
-                cursor.execute("""
-                    INSERT OR REPLACE INTO project_documents (project_id, content, updated_at)
-                    VALUES (?, ?, CURRENT_TIMESTAMP)
-                """, (project_id, content))
-                
-                # Update project timestamp
-                cursor.execute("""
-                    UPDATE projects SET updated_at = CURRENT_TIMESTAMP WHERE id = ?
-                """, (project_id,))
-                
-                conn.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error saving document for project {project_id}: {e}")
-            return False
+    # Create another conversation for the same project
+    db.conversations.create("test_conversation_2", "test_project", "test_session")
+    db.conversations.add_message("test_conversation_2", "user", "Let's discuss the timeline")
+    db.conversations.add_message("test_conversation_2", "assistant", "Sure, what's your target deadline?")
     
-    def get_document(self, project_id: str) -> str:
-        """Get document content for a project"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT content FROM project_documents WHERE project_id = ?
-                """, (project_id,))
-                row = cursor.fetchone()
-                if row:
-                    return row['content']
-                else:
-                    # Create project and return default document
-                    self.create_project(project_id)
-                    return "# Project Plan\n\nWaiting for project details..."
-        except Exception as e:
-            logger.error(f"Error getting document for project {project_id}: {e}")
-            return "# Project Plan\n\nError loading document"
+    # Query conversations
+    conv1 = db.conversations.get("test_conversation")
+    conv2 = db.conversations.get("test_conversation_2")
     
-    # User session management
-    def join_project(self, session_id: str, project_id: str, user_name: str = None, user_id: str = None) -> bool:
-        """Add user session to a project"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Ensure project exists
-                self.create_project(project_id)
-                
-                # Deactivate any existing session for this session_id
-                cursor.execute("""
-                    UPDATE user_sessions SET is_active = 0 WHERE session_id = ?
-                """, (session_id,))
-                
-                # Create new active session
-                cursor.execute("""
-                    INSERT INTO user_sessions 
-                    (session_id, project_id, user_name, user_id, joined_at, last_activity, is_active)
-                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)
-                """, (session_id, project_id, user_name, user_id))
-                
-                conn.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error joining project {project_id} for session {session_id}: {e}")
-            return False
+    print(f"Conversation 1: {len(conv1.messages)} messages")
+    for msg in conv1.messages:
+        print(f"  {msg['role']}: {msg['content']}")
     
-    def leave_project(self, session_id: str) -> bool:
-        """Remove user session from project"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE user_sessions SET is_active = 0 WHERE session_id = ?
-                """, (session_id,))
-                conn.commit()
-                return cursor.rowcount > 0
-        except Exception as e:
-            logger.error(f"Error leaving project for session {session_id}: {e}")
-            return False
+    print(f"\nConversation 2: {len(conv2.messages)} messages")
+    for msg in conv2.messages:
+        print(f"  {msg['role']}: {msg['content']}")
     
-    def update_session_activity(self, session_id: str) -> bool:
-        """Update last activity timestamp for a session"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE user_sessions 
-                    SET last_activity = CURRENT_TIMESTAMP 
-                    WHERE session_id = ? AND is_active = 1
-                """, (session_id,))
-                conn.commit()
-                return cursor.rowcount > 0
-        except Exception as e:
-            logger.error(f"Error updating activity for session {session_id}: {e}")
-            return False
+    # Get all conversations for the project
+    all_convs = db.conversations.get_by_project("test_project")
+    print(f"\nTotal conversations for project: {len(all_convs)}")
     
-    def get_active_users(self, project_id: str) -> List[Dict]:
-        """Get list of active users in a project"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                # Consider users active if they've been active in the last 5 minutes
-                cursor.execute("""
-                    SELECT session_id, user_name, user_id, joined_at, last_activity
-                    FROM user_sessions
-                    WHERE project_id = ? 
-                      AND is_active = 1 
-                      AND last_activity > datetime('now', '-5 minutes')
-                    ORDER BY joined_at
-                """, (project_id,))
-                return [dict(row) for row in cursor.fetchall()]
-        except Exception as e:
-            logger.error(f"Error getting active users for project {project_id}: {e}")
-            return []
-    
-    def cleanup_inactive_sessions(self, inactive_minutes: int = 30):
-        """Mark sessions as inactive if no activity for specified minutes"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE user_sessions 
-                    SET is_active = 0 
-                    WHERE is_active = 1 
-                      AND last_activity < datetime('now', '-{} minutes')
-                """.format(inactive_minutes))
-                conn.commit()
-                if cursor.rowcount > 0:
-                    logger.info(f"Cleaned up {cursor.rowcount} inactive sessions")
-        except Exception as e:
-            logger.error(f"Error cleaning up inactive sessions: {e}")
-    
-    # Conversation history
-    def add_message(self, project_id: str, role: str, content: str, session_id: str = None) -> bool:
-        """Add message to conversation history"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO conversation_history (project_id, session_id, role, content)
-                    VALUES (?, ?, ?, ?)
-                """, (project_id, session_id, role, content))
-                conn.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error adding message to project {project_id}: {e}")
-            return False
-    
-    def get_conversation_history(self, project_id: str, limit: int = 100) -> List[Dict]:
-        """Get conversation history for a project"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT ch.*, us.user_name
-                    FROM conversation_history ch
-                    LEFT JOIN user_sessions us ON ch.session_id = us.session_id
-                    WHERE ch.project_id = ?
-                    ORDER BY ch.timestamp
-                    LIMIT ?
-                """, (project_id, limit))
-                return [dict(row) for row in cursor.fetchall()]
-        except Exception as e:
-            logger.error(f"Error getting conversation history for project {project_id}: {e}")
-            return []
-    
-    def clear_project_data(self, project_id: str) -> bool:
-        """Clear all data for a project"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Clear in order due to foreign key constraints
-                cursor.execute("DELETE FROM conversation_history WHERE project_id = ?", (project_id,))
-                cursor.execute("DELETE FROM user_sessions WHERE project_id = ?", (project_id,))
-                cursor.execute("DELETE FROM project_documents WHERE project_id = ?", (project_id,))
-                cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
-                
-                conn.commit()
-                return True
-        except Exception as e:
-            logger.error(f"Error clearing project data for {project_id}: {e}")
-            return False
+    breakpoint()
