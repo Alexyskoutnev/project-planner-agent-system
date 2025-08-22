@@ -6,9 +6,10 @@ interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  isSending?: boolean;
 }
 
-export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterfaceProps) {
+export function ChatInterface({ messages, onSendMessage, isLoading, isSending }: ChatInterfaceProps) {
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -19,12 +20,14 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputMessage.trim() && !isLoading) {
+    if (inputMessage.trim() && !isLoading && !isSending) {
       onSendMessage(inputMessage.trim());
       setInputMessage('');
       inputRef.current?.focus();
     }
   };
+
+  const isDisabled = isLoading || isSending;
 
   const formatTime = (timestamp: Date) => {
     return new Date(timestamp).toLocaleTimeString([], { 
@@ -38,6 +41,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
       <div className="chat-header">
         <h3>Project Planning Chat</h3>
         {isLoading && <div className="loading-indicator">AI is thinking...</div>}
+        {isSending && !isLoading && <div className="loading-indicator">Another user is sending a message...</div>}
       </div>
       
       <div className="messages">
@@ -54,7 +58,10 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
             >
               <div className="message-header">
                 <span className="sender">
-                  {message.from === 'user' ? 'You' : 'AI Assistant'}
+                  {message.from === 'user' 
+                    ? (message.userName || 'Anonymous User')
+                    : 'AI Assistant'
+                  }
                 </span>
                 <span className="timestamp">{formatTime(message.timestamp)}</span>
               </div>
@@ -74,19 +81,19 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder={isLoading 
-              ? "AI is responding..." 
+            placeholder={isDisabled 
+              ? (isLoading ? "AI is responding..." : "Another user is typing...") 
               : "Type your message..."
             }
-            disabled={isLoading}
+            disabled={isDisabled}
             className="message-input"
           />
           <button 
             type="submit" 
-            disabled={!inputMessage.trim() || isLoading}
+            disabled={!inputMessage.trim() || isDisabled}
             className="send-button"
           >
-            Send
+            {isDisabled ? (isLoading ? "Sending..." : "Wait...") : "Send"}
           </button>
         </div>
       </form>

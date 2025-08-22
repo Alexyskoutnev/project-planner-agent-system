@@ -253,6 +253,9 @@ class ConversationCRUD:
                         "content": content,
                         "timestamp": int(datetime.now(timezone.utc).timestamp())
                     })
+                    # Mark the field as modified so SQLAlchemy detects the change
+                    from sqlalchemy.orm.attributes import flag_modified
+                    flag_modified(conversation, 'messages')
                     session.commit()
                     return True
                 return False

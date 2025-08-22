@@ -13,10 +13,10 @@ from pydantic import BaseModel
 # Import existing agent system
 from agents import Runner, SQLiteSession
 from naii_agents.agents import product_manager
-from naii_agents.tools import overwrite_doc, read_current_doc
+import os
 
 # Import our new database system
-from database import ProjectDatabase
+from database.database import ProjectDatabase
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -93,8 +93,12 @@ class ProjectStatusResponse(BaseModel):
     documentLength: int
 
 # Helper functions
-def get_session_id(x_session_id: str = Header(None)) -> str:
-    """Get or create session ID from header"""
+def get_session_id(x_session_id: str = Header(None)) -> Optional[str]:
+    """Get session ID from header, don't create new ones"""
+    return x_session_id
+
+def get_or_create_session_id(x_session_id: str = Header(None)) -> str:
+    """Get or create session ID from header - only used for join endpoint"""
     if not x_session_id:
         return str(uuid.uuid4())
     return x_session_id
@@ -102,6 +106,25 @@ def get_session_id(x_session_id: str = Header(None)) -> str:
 async def run_agent_conversation(message: str, project_id: str) -> str:
     """Run the agent conversation and return the response"""
     try:
+        # Load project-specific document before running agents
+        load_document_for_project(project_id)
+        
+        # Temporarily replace the main document with project-specific one
+        main_doc_path = "./project_docs/NAI_system_configuration.md"
+        project_doc_path = f"./project_docs/{project_id}_NAI_system_configuration.md"
+        backup_path = "./project_docs/NAI_system_configuration.md.backup"
+        
+        # Backup original if it exists
+        if os.path.exists(main_doc_path):
+            if os.path.exists(project_doc_path):
+                os.rename(main_doc_path, backup_path)
+                os.rename(project_doc_path, main_doc_path)
+            # If no project-specific doc exists, keep the main one
+        else:
+            # If no main doc, copy project-specific or create empty
+            if os.path.exists(project_doc_path):
+                os.rename(project_doc_path, main_doc_path)
+        
         # Create session for this project
         session = SQLiteSession(f"fastapi-{project_id}", "nai_conversations.sqlite")
         
@@ -112,19 +135,42 @@ async def run_agent_conversation(message: str, project_id: str) -> str:
             session=session,
         )
         
+        # Restore the document structure after agent processing
+        if os.path.exists(main_doc_path):
+            os.rename(main_doc_path, project_doc_path)
+        if os.path.exists(backup_path):
+            os.rename(backup_path, main_doc_path)
+        
         return result.final_output or "I apologize, but I wasn't able to process your request. Could you please try rephrasing?"
         
     except Exception as e:
         logger.error(f"Error running agents: {e}")
+        # Ensure we restore the document structure even if there's an error
+        try:
+            if os.path.exists("./project_docs/NAI_system_configuration.md"):
+                os.rename("./project_docs/NAI_system_configuration.md", f"./project_docs/{project_id}_NAI_system_configuration.md")
+            if os.path.exists("./project_docs/NAI_system_configuration.md.backup"):
+                os.rename("./project_docs/NAI_system_configuration.md.backup", "./project_docs/NAI_system_configuration.md")
+        except:
+            pass
         raise HTTPException(status_code=500, detail=f"Agent processing error: {str(e)}")
 
 def save_document_to_project(project_id: str):
-    """Save current working document to project-specific storage"""
+    """Save current working document to project-specific database storage"""
     try:
         # Read the current document that the agents modified
-        current_doc = read_current_doc()
-        if current_doc and current_doc != "document could not be found":
-            db.save_document(project_id, current_doc)
+        doc_path = f"./project_docs/{project_id}_NAI_system_configuration.md"
+        current_doc = None
+        if os.path.exists(doc_path) and os.path.getsize(doc_path) > 0:
+            with open(doc_path, "r", encoding="utf-8") as f:
+                current_doc = f.read()
+        
+        if current_doc and current_doc.strip() and current_doc != "document could not be found":
+            # Save directly to database
+            document_id = f"doc_{project_id}"
+            if not db.documents.update_content(document_id, current_doc):
+                # Document doesn't exist, create it
+                db.documents.create(document_id, current_doc, project_id)
             return current_doc
         return None
     except Exception as e:
@@ -132,13 +178,23 @@ def save_document_to_project(project_id: str):
         return None
 
 def load_document_for_project(project_id: str):
-    """Load project-specific document for agent processing"""
+    """Load project-specific document from database for agent processing"""
     try:
         # Get document from database
-        doc_content = db.get_document(project_id)
-        if doc_content:
-            # Write it to the current working document for agents to use
-            overwrite_doc(doc_content)
+        document_id = f"doc_{project_id}"
+        document = db.documents.get(document_id)
+        if document:
+            # Write it to project-specific working document for agents to use
+            doc_path = f"./project_docs/{project_id}_NAI_system_configuration.md"
+            os.makedirs("./project_docs/", exist_ok=True)
+            with open(doc_path, "w", encoding="utf-8") as f:
+                f.write(document.content)
+        else:
+            # Create empty document if none exists
+            doc_path = f"./project_docs/{project_id}_NAI_system_configuration.md"
+            os.makedirs("./project_docs/", exist_ok=True)
+            with open(doc_path, "w", encoding="utf-8") as f:
+                f.write("# No document available")
     except Exception as e:
         logger.error(f"Error loading document for project {project_id}: {e}")
 
@@ -152,7 +208,8 @@ async def lifespan(app: FastAPI):
     async def cleanup_task():
         while True:
             await asyncio.sleep(300)  # Run every 5 minutes
-            db.cleanup_inactive_sessions()
+            # Cleanup inactive sessions (you can implement this logic later)
+            logger.info("Cleanup task ran")
     
     cleanup_task_handle = asyncio.create_task(cleanup_task())
     
@@ -167,16 +224,19 @@ app.router.lifespan_context = lifespan
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
     return {"message": "NAI Project Planning API v2.0 is running"}
 
 @app.post("/join", response_model=JoinProjectResponse)
 async def join_project(request: JoinProjectRequest, 
-                       session_id: str = Depends(get_session_id)):
+                       session_id: str = Depends(get_or_create_session_id)):
     """Join a project and get session ID"""
     try:
-        # Join the project
-        success = db.join_project(
+        # Ensure project exists
+        if not db.projects.get(request.projectId):
+            db.projects.create(request.projectId)
+        
+        # Create session for this user/project
+        success = db.sessions.create(
             session_id=session_id,
             project_id=request.projectId,
             user_name=request.userName
@@ -196,10 +256,12 @@ async def join_project(request: JoinProjectRequest,
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/leave")
-async def leave_project(session_id: str = Depends(get_session_id)):
+async def leave_project(session_id: Optional[str] = Depends(get_session_id)):
     """Leave current project"""
     try:
-        success = db.leave_project(session_id)
+        if not session_id:
+            return {"message": "No active session found"}
+        success = db.sessions.set_inactive(session_id)
         return {"message": "Left project successfully" if success else "No active session found"}
     except Exception as e:
         logger.error(f"Error leaving project: {e}")
@@ -207,35 +269,44 @@ async def leave_project(session_id: str = Depends(get_session_id)):
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, 
-               session_id: str = Depends(get_session_id)):
+               session_id: Optional[str] = Depends(get_session_id)):
     """
     Send a chat message and get AI response.
     Also returns updated document if it was modified.
     """
     try:
+        if not session_id:
+            raise HTTPException(status_code=401, detail="No active session. Please join a project first.")
+        
         # Update session activity
-        db.update_session_activity(session_id)
+        db.sessions.update_activity(session_id)
         
         # Load project-specific document for agent processing
         load_document_for_project(request.projectId)
         
         # Get document content before processing
-        doc_before = db.get_document(request.projectId)
+        document_id = f"doc_{request.projectId}"
+        doc_before_obj = db.documents.get(document_id)
+        doc_before = doc_before_obj.content if doc_before_obj else ""
         
-        # Add user message to history
-        db.add_message(request.projectId, "user", request.message, session_id)
+        # Create conversation if needed and add user message
+        conversation_id = f"conv_{request.projectId}_{session_id}"
+        if not db.conversations.get(conversation_id):
+            db.conversations.create(conversation_id, request.projectId, session_id)
+        db.conversations.add_message(conversation_id, "user", request.message)
         
         # Process message through agent system
         ai_response = await run_agent_conversation(request.message, request.projectId)
         
         # Add AI response to history
-        db.add_message(request.projectId, "assistant", ai_response)
+        db.conversations.add_message(conversation_id, "assistant", ai_response)
         
         # Save any document changes back to project storage
         doc_after = save_document_to_project(request.projectId)
         
         # Get active users
-        active_users = db.get_active_users(request.projectId)
+        active_sessions = db.sessions.get_active_by_project(request.projectId)
+        active_users = [{"sessionId": s.session_id, "userName": s.user_name, "joinedAt": s.joined_at_ts} for s in active_sessions]
         
         # Return response with document if it changed
         response = ChatResponse(
@@ -256,7 +327,9 @@ async def chat(request: ChatRequest,
 async def get_document(project_id: str):
     """Get the current document state for a project"""
     try:
-        document = db.get_document(project_id)
+        document_id = f"doc_{project_id}"
+        document_obj = db.documents.get(document_id)
+        document = document_obj.content if document_obj else ""
         return DocumentResponse(document=document)
     except Exception as e:
         logger.error(f"Error getting document: {e}")
@@ -266,9 +339,40 @@ async def get_document(project_id: str):
 async def get_history(project_id: str):
     """Get the entire conversation history and current document for a project"""
     try:
-        history = db.get_conversation_history(project_id)
-        document = db.get_document(project_id)
-        active_users = db.get_active_users(project_id)
+        # Get all conversations for this project
+        conversations = db.conversations.get_by_project(project_id)
+        
+        # Flatten messages from all conversations with timestamps and user names
+        history = []
+        for conv in conversations:
+            if conv.messages:
+                # Get session info to get user name
+                session = db.sessions.get(conv.session_id)
+                user_name = session.user_name if session else None
+                
+                # Debug logging
+                logger.info(f"Conversation {conv.conversation_id}: session_id={conv.session_id}, user_name={user_name}")
+                
+                for msg in conv.messages:
+                    history.append({
+                        "role": msg["role"],
+                        "content": msg["content"],
+                        "timestamp": msg.get("timestamp", conv.timestamp_ts),
+                        "conversationId": conv.conversation_id,
+                        "userName": user_name if msg["role"] == "user" else None
+                    })
+        
+        # Sort by timestamp
+        history.sort(key=lambda x: x["timestamp"])
+        
+        # Get document
+        document_id = f"doc_{project_id}"
+        document_obj = db.documents.get(document_id)
+        document = document_obj.content if document_obj else ""
+        
+        # Get active users
+        active_sessions = db.sessions.get_active_by_project(project_id)
+        active_users = [{"sessionId": s.session_id, "userName": s.user_name, "joinedAt": s.joined_at_ts} for s in active_sessions]
         
         return HistoryResponse(
             history=history,
@@ -283,7 +387,13 @@ async def get_history(project_id: str):
 async def list_projects():
     """List all projects with activity info"""
     try:
-        projects = db.list_projects()
+        projects_data = db.projects.list_all()
+        projects = [{
+            "projectId": p.project_id,
+            "createdAt": p.created_at_ts,
+            "updatedAt": p.updated_at_ts,
+            "activeUsers": len(db.sessions.get_active_by_project(p.project_id))
+        } for p in projects_data]
         return ProjectListResponse(projects=projects)
     except Exception as e:
         logger.error(f"Error listing projects: {e}")
@@ -293,14 +403,22 @@ async def list_projects():
 async def get_project_status(project_id: str):
     """Get project status including active users"""
     try:
-        active_users = db.get_active_users(project_id)
-        project = db.get_project(project_id)
-        document = db.get_document(project_id)
+        # Get active users
+        active_sessions = db.sessions.get_active_by_project(project_id)
+        active_users = [{"sessionId": s.session_id, "userName": s.user_name, "joinedAt": s.joined_at_ts} for s in active_sessions]
+        
+        # Get project info
+        project = db.projects.get(project_id)
+        
+        # Get document
+        document_id = f"doc_{project_id}"
+        document_obj = db.documents.get(document_id)
+        document = document_obj.content if document_obj else ""
         
         return ProjectStatusResponse(
             projectId=project_id,
             activeUsers=active_users,
-            lastActivity=project.get('updated_at') if project else None,
+            lastActivity=datetime.fromtimestamp(project.updated_at_ts).isoformat() if project else None,
             documentLength=len(document)
         )
     except Exception as e:
@@ -311,27 +429,42 @@ async def get_project_status(project_id: str):
 async def get_active_users(project_id: str):
     """Get active users for a project"""
     try:
-        active_users = db.get_active_users(project_id)
+        active_sessions = db.sessions.get_active_by_project(project_id)
+        active_users = [{"sessionId": s.session_id, "userName": s.user_name, "joinedAt": s.joined_at_ts} for s in active_sessions]
         return ActiveUsersResponse(activeUsers=active_users)
     except Exception as e:
         logger.error(f"Error getting active users: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/projects/{project_id}")
-async def clear_project(project_id: str):
-    """Clear all data for a project"""
+async def delete_project(project_id: str):
+    """Delete a project and all its data"""
     try:
-        success = db.clear_project_data(project_id)
-        return {"message": f"Project {project_id} cleared successfully" if success else "Project not found"}
+        # Clear conversations
+        conversations = db.conversations.get_by_project(project_id)
+        for conv in conversations:
+            db.conversations.clear_messages(conv.conversation_id)
+        
+        # Clear document
+        document_id = f"doc_{project_id}"
+        db.documents.update_content(document_id, "")
+        
+        # Set all sessions for this project as inactive
+        sessions = db.sessions.get_active_by_project(project_id)
+        for session in sessions:
+            db.sessions.set_inactive(session.session_id)
+        
+        # Actually delete the project record
+        success = db.projects.delete(project_id)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+        
+        return {"message": f"Project {project_id} deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error clearing project: {e}")
+        logger.error(f"Error deleting project: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-# Backward compatibility endpoints (for existing frontend)
-@app.delete("/history/{project_id}")
-async def clear_history_legacy(project_id: str):
-    """Legacy endpoint for clearing project history"""
-    return await clear_project(project_id)
 
 if __name__ == "__main__":
     import uvicorn

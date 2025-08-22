@@ -18,8 +18,7 @@ export function JoinForm({ onJoin }: JoinFormProps) {
   return (
     <div className="join-form-container">
       <div className="join-form">
-        <h1>Multi-User Project Planning</h1>
-        <p>Join a project planning session and collaborate with AI agents</p>
+        <h1>NAI Project Planning</h1>
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -40,16 +39,6 @@ export function JoinForm({ onJoin }: JoinFormProps) {
             Join Project
           </button>
         </form>
-        
-        <div className="info-box">
-          <h3>How it works:</h3>
-          <ul>
-            <li>💬 Chat with AI to describe your project</li>
-            <li>📋 Watch the project document build in real-time</li>
-            <li>🔄 Iteratively refine your project plan</li>
-            <li>📄 Export your completed project document</li>
-          </ul>
-        </div>
       </div>
     </div>
   );

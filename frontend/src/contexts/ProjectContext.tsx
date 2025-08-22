@@ -2,14 +2,15 @@ import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { ProjectState } from '../types';
 
 interface ProjectAction {
-  type: 'ADD_MESSAGE' | 'UPDATE_DOCUMENT' | 'SET_LOADING';
+  type: 'ADD_MESSAGE' | 'UPDATE_DOCUMENT' | 'SET_LOADING' | 'SET_ACTIVE_USERS' | 'LOAD_HISTORY';
   payload?: any;
 }
 
 const initialState: ProjectState = {
   projectDocument: '# Project Plan\n\nWaiting for project details...',
   messages: [],
-  isLoading: false
+  isLoading: false,
+  activeUsers: []
 };
 
 function projectReducer(state: ProjectState, action: ProjectAction): ProjectState {
@@ -30,6 +31,20 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
       return { 
         ...state, 
         isLoading: action.payload 
+      };
+    
+    case 'SET_ACTIVE_USERS':
+      return {
+        ...state,
+        activeUsers: action.payload
+      };
+    
+    case 'LOAD_HISTORY':
+      return {
+        ...state,
+        messages: action.payload.messages,
+        projectDocument: action.payload.document,
+        activeUsers: action.payload.activeUsers
       };
     
     default:
