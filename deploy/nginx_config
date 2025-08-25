@@ -1,0 +1,20 @@
+server {
+    listen 80;
+
+    server_name _;   # replace _ with your domain if you have one
+
+    # React frontend build
+    root /home/ubuntu/app/frontend/build;
+    index index.html;
+
+    location / {
+        try_files $uri /index.html;
+    }
+
+    # FastAPI backend
+    location /api {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}

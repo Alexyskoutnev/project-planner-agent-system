@@ -145,39 +145,40 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
   return (
     <div className="project-room">
       <div className="project-header">
-        <div className="header-left">
+        <div className="header-main">
           <div className="project-info">
-            <h2>Project: {projectId}</h2>
-            {userName && <span className="current-user">You: {userName}</span>}
-          </div>
-        </div>
-        
-        <div className="header-center">
-          <div className="active-users">
-            <h3>Active Users ({state.activeUsers.length})</h3>
-            <div className="users-list">
-              {state.activeUsers.map((user) => (
-                <div key={user.sessionId} className="user-badge">
-                  <span className="user-name">{formatUserName(user)}</span>
-                  <span className="join-time">joined {formatJoinTime(user.joinedAt)}</span>
-                </div>
-              ))}
-              {state.activeUsers.length === 0 && (
-                <div className="no-users">No active users</div>
-              )}
+            <h1 className="project-title">{projectId}</h1>
+            <div className="project-meta">
+              {userName && <span className="current-user">👤 {userName}</span>}
+              <span className="active-count">
+                🟢 {state.activeUsers.length} active user{state.activeUsers.length !== 1 ? 's' : ''}
+              </span>
             </div>
           </div>
+          
+          <div className="header-actions">
+            <button 
+              onClick={handleSignOut} 
+              className="sign-out-button"
+              disabled={isSigningOut}
+            >
+              {isSigningOut ? '⏳ Signing Out...' : '← Sign Out'}
+            </button>
+          </div>
         </div>
         
-        <div className="header-right">
-          <button 
-            onClick={handleSignOut} 
-            className="sign-out-button"
-            disabled={isSigningOut}
-          >
-            {isSigningOut ? '⏳ Signing Out...' : '← Sign Out'}
-          </button>
-        </div>
+        {state.activeUsers.length > 0 && (
+          <div className="active-users-bar">
+            <div className="users-list">
+              {state.activeUsers.map((user) => (
+                <div key={user.sessionId} className="user-chip">
+                  <span className="user-name">{formatUserName(user)}</span>
+                  <span className="join-time">{formatJoinTime(user.joinedAt)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="project-content">
