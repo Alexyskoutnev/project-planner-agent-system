@@ -4,7 +4,7 @@ server {
     server_name _;   # replace _ with your domain if you have one
 
     # React frontend build
-    root /home/ubuntu/app/frontend/build;
+    root /home/ubuntu/project-planner-naii/frontend/build;
     index index.html;
 
     location / {

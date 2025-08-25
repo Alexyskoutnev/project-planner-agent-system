@@ -34,17 +34,16 @@ pip install -r requirements.txt
 pip install gunicorn
 ```
 
-### 4. Build & Deploy Frontend
-```bash
-chmod +x deploy/build_frontend.sh
-./deploy/build_frontend.sh
-npm run build
-```
-
-### 5. Setup Backend Service
+### 4. Setup Backend Service
 ```bash
 chmod +x deploy/run_backend_service.sh
 ./deploy/run_backend_service.sh
+```
+
+### 5. Build Frontend
+```bash
+chmod +x deploy/build_frontend.sh
+./deploy/build_frontend.sh
 ```
 
 ### 6. Configure Nginx
@@ -64,5 +63,38 @@ sudo systemctl status nginx
 ```
 
 Visit your app: `http://<EC2_PUBLIC_IP>`
+
+---
+
+## Troubleshooting
+
+**Services not running:**
+```bash
+# Check backend
+sudo systemctl status fastapi
+sudo journalctl -u fastapi -f
+
+# Check nginx
+sudo systemctl status nginx
+sudo nginx -t
+```
+
+**Frontend not loading:**
+```bash
+# Verify build directory exists
+ls -la /home/ubuntu/project-planner-naii/frontend/build/
+
+# Check nginx logs
+sudo tail -f /var/log/nginx/error.log
+```
+
+**API not working:**
+```bash
+# Test backend directly
+curl http://localhost:8000/api/
+
+# Check if backend is listening
+sudo netstat -tlnp | grep :8000
+```
 
 ---

@@ -1,6 +1,4 @@
 #!/bin/bash
-# setup_frontend.sh
-# Script to build
 
 APP_DIR="/home/ubuntu/project-planner-naii"
 FRONTEND_DIR="$APP_DIR/frontend"
@@ -14,3 +12,9 @@ sudo apt install -y nodejs npm
 echo "👉 Building React frontend..."
 cd $FRONTEND_DIR
 npm install
+
+# Build the frontend
+npm run build
+
+echo "✅ Frontend build complete!"
+echo "Build directory: $FRONTEND_DIR/build"
