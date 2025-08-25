@@ -22,6 +22,9 @@ sudo cp deploy/nginx_config /etc/nginx/sites-available/project
 # Enable our site
 sudo ln -sf /etc/nginx/sites-available/project /etc/nginx/sites-enabled/
 
+# Link config
+sudo ln -s /home/ubuntu/project-planner-naii /home/ubuntu/app
+
 # Test nginx configuration
 echo "👉 Testing Nginx configuration..."
 if sudo nginx -t; then
