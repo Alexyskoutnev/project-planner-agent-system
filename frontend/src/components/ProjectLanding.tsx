@@ -99,8 +99,7 @@ export function ProjectLanding({ onJoin }: ProjectLandingProps) {
   return (
     <div className="project-landing-container">
       <div className="project-landing">
-        <h1>Multi-User Project Planning</h1>
-        <p>Create new projects or join existing ones to collaborate with AI agents</p>
+        <h1>NAII Project Planning</h1>
 
         {error && (
           <div className="error-message">
@@ -111,7 +110,7 @@ export function ProjectLanding({ onJoin }: ProjectLandingProps) {
 
         {/* User Name Input */}
         <div className="user-section">
-          <label htmlFor="userName">Your Name (Required for joining existing projects):</label>
+          <label htmlFor="userName">Your Name</label>
           <input
             id="userName"
             type="text"
@@ -187,16 +186,6 @@ export function ProjectLanding({ onJoin }: ProjectLandingProps) {
               ))}
             </div>
           )}
-        </div>
-
-        <div className="info-box">
-          <h3>How it works:</h3>
-          <ul>
-            <li>💬 Chat with AI to describe your project</li>
-            <li>📋 Watch the project document build in real-time</li>
-            <li>🔄 Iteratively refine your project plan</li>
-            <li>📄 Export your completed project document</li>
-          </ul>
         </div>
       </div>
     </div>

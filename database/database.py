@@ -323,7 +323,8 @@ class ConversationCRUD:
 
 
 class ProjectDatabase:
-    def __init__(self, database_url: str = "sqlite:///project_database.db"):
+    def __init__(self, 
+                 database_url: str = "sqlite:///project_database.db"):
         self.db_manager = DatabaseManager(database_url)
         self.projects = ProjectCRUD(self.db_manager)
         self.documents = DocumentCRUD(self.db_manager)

@@ -10,17 +10,29 @@
   background: #ffffff;
   border-bottom: 1px solid #e9ecef;
   padding: 1.5rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   gap: 2rem;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-.header-actions {
+.header-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  justify-self: start;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-self: center;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  justify-self: end;
 }
 
 .sign-out-button {
@@ -35,9 +47,16 @@
   transition: all 0.2s ease;
 }
 
-.sign-out-button:hover {
+.sign-out-button:hover:not(:disabled) {
   background: #5a6268;
   border-color: #5a6268;
+}
+
+.sign-out-button:disabled {
+  background: #adb5bd;
+  border-color: #adb5bd;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .project-info h2 {
@@ -55,6 +74,7 @@
 
 .active-users {
   min-width: 300px;
+  text-align: center;
 }
 
 .active-users h3 {
@@ -127,8 +147,14 @@
   }
   
   .project-header {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     gap: 1rem;
+  }
+  
+  .header-left,
+  .header-center,
+  .header-right {
+    justify-self: center;
   }
   
   .active-users {

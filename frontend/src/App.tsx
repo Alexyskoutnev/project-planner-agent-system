@@ -15,11 +15,19 @@ function App() {
   };
 
   const handleSignOut = async () => {
+    const currentProjectId = projectId;
     try {
+      // First leave the project
       await api.leaveProject();
+      
+      // Then cleanup any ghost sessions for this project
+      if (currentProjectId) {
+        await api.cleanupProjectSessions(currentProjectId);
+      }
     } catch (error) {
-      console.error('Error leaving project:', error);
+      console.error('Error during signout:', error);
     } finally {
+      // Always clear local state even if API calls fail
       setProjectId(null);
       setUserName(undefined);
     }

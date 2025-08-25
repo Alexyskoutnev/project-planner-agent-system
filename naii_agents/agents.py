@@ -1,5 +1,5 @@
 from agents import Agent, WebSearchTool
-from .tools import overwrite_doc, read_current_doc, get_current_date
+from .tools import write_doc, read_current_doc, get_current_date, verify_document_saved
 
 product_manager = Agent(
     name="Product Manager",
@@ -38,7 +38,9 @@ product_manager = Agent(
         
         "**DECISION MATRIX:**\n"
         "- Need technical expertise or a specific NAI product question? → transfer_to_engineer\n"
-        "- Ready to document progress (show document if user asks)? → transfer_to_pmo\n"
+        "- When the user asks to view the document, tell the PMO to use write_doc()/verify_document_saved() to write the current project plan and this will automatically show the document to the user\n"
+        "- User asks to 'create document', 'save document', 'write document', or 'update document' → transfer_to_pmo\n"
+        "- Have enough information to create a meaningful project plan → transfer_to_pmo\n"
         "- Missing user input? → Ask specific questions\n"
         "- Project plan complete? → Present summary and next steps"
     ),
@@ -72,27 +74,30 @@ pmo = Agent(
     name="PMO",
     model="gpt-5",
     instructions=(
-        "You are the Project Management Office (PMO). You are the document keeper and maintainer of the official Project Plan. You do NOT directly interact with the user - you only update documents and hand off to other agents.\n\n"
-        "Your workflow:\n"
-        "1. **ALWAYS** call read_current_doc() first to load the latest project plan.\n"
-        "2. Integrate the new information you received into the correct section of the document, preserving all existing data.\n"
-        "3. Use this exact template structure and update ONLY the relevant sections:\n\n"
-        "```\n"
-        "# Project Plan: [Project Codename TBD]\n\n"
+        "You are the Project Management Office (PMO) - the document writer. Your ONLY job is to create and save project documents. You do NOT talk to the user.\n\n"
+        "**SIMPLE WORKFLOW:**\n"
+        "1. **IMMEDIATELY** call read_current_doc() to see what exists\n"
+        "2. **IMMEDIATELY** call write_doc() with a complete project document using ALL the information you received\n"
+        "3. **IMMEDIATELY** call verify_document_saved() to confirm it worked\n"
+        "4. Report back to Product Manager that the document has been saved\n\n"
+        "**DOCUMENT TEMPLATE:**\n"
+        "```markdown\n"
+        "# Project Plan: [Project Name]\n\n"
         "## 1.0 Executive Summary & Vision\n"
-        "* **1.1 Target Market:** [TBD]\n"
-        "* **1.2 Core Value Proposition:** [What problem does this solve? TBD]\n\n"
-        "## 2.0 Key Project Requirements\n"
-        "## 3.0 Architectural Specification\n"
-        "## 4.0 Phased Execution Plan & Milestones\n"
-        "## 5.0 Stakeholders & Roles\n"
+        "* **Target Market:** [Customer/market]\n"
+        "* **Core Problem:** [What problem this solves]\n\n"
+        "## 2.0 Key Requirements\n"
+        "[List all functional requirements]\n\n"
+        "## 3.0 Technical Architecture\n"
+        "[Technical details and specifications]\n\n"
+        "## 4.0 Timeline & Milestones\n"
+        "[Project schedule and key dates]\n\n"
+        "## 5.0 Next Steps\n"
+        "[What needs to happen next]\n"
         "```\n\n"
-        "4. Call overwrite_doc() with the COMPLETE, updated Markdown document.\n"
-        "5. Determine what information is still missing and hand off to the appropriate agent:\n"
-        "   - If missing product requirements or market info → hand off to Product Manager\n"
-        "Always confirm the document update was successful before handing off."
+        "**CRITICAL:** Always call write_doc() with the complete document. Never skip this step."
     ),
-    tools=[overwrite_doc, read_current_doc, get_current_date],
+    tools=[write_doc, read_current_doc, get_current_date, verify_document_saved],
 )
 
 """

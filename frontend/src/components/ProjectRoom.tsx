@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useProject } from '../contexts/ProjectContext';
 import { useChat } from '../hooks/useChat';
 import { ChatInterface } from './ChatInterface';
@@ -14,6 +14,7 @@ interface ProjectRoomProps {
 }
 
 export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps) {
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const { state, dispatch } = useProject();
   const { sendMessage } = useChat(projectId, userName);
 
@@ -123,33 +124,59 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
     return new Date(timestamp * 1000).toLocaleTimeString();
   };
 
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    
+    const confirmed = window.confirm('Are you sure you want to sign out? You will leave this project.');
+    if (!confirmed) return;
+    
+    setIsSigningOut(true);
+    try {
+      if (onSignOut) {
+        await onSignOut();
+      }
+    } catch (error) {
+      console.error('Error during signout:', error);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   return (
     <div className="project-room">
       <div className="project-header">
-        <div className="project-info">
-          <h2>Project: {projectId}</h2>
-          {userName && <span className="current-user">You: {userName}</span>}
-        </div>
-        
-        <div className="header-actions">
-          <button onClick={onSignOut} className="sign-out-button">
-            ← Sign Out
-          </button>
-        </div>
-        
-        <div className="active-users">
-          <h3>Active Users ({state.activeUsers.length})</h3>
-          <div className="users-list">
-            {state.activeUsers.map((user) => (
-              <div key={user.sessionId} className="user-badge">
-                <span className="user-name">{formatUserName(user)}</span>
-                <span className="join-time">joined {formatJoinTime(user.joinedAt)}</span>
-              </div>
-            ))}
-            {state.activeUsers.length === 0 && (
-              <div className="no-users">No active users</div>
-            )}
+        <div className="header-left">
+          <div className="project-info">
+            <h2>Project: {projectId}</h2>
+            {userName && <span className="current-user">You: {userName}</span>}
           </div>
+        </div>
+        
+        <div className="header-center">
+          <div className="active-users">
+            <h3>Active Users ({state.activeUsers.length})</h3>
+            <div className="users-list">
+              {state.activeUsers.map((user) => (
+                <div key={user.sessionId} className="user-badge">
+                  <span className="user-name">{formatUserName(user)}</span>
+                  <span className="join-time">joined {formatJoinTime(user.joinedAt)}</span>
+                </div>
+              ))}
+              {state.activeUsers.length === 0 && (
+                <div className="no-users">No active users</div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="header-right">
+          <button 
+            onClick={handleSignOut} 
+            className="sign-out-button"
+            disabled={isSigningOut}
+          >
+            {isSigningOut ? '⏳ Signing Out...' : '← Sign Out'}
+          </button>
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import os
 import logging
 import asyncio
 import uuid
+import sqlite3
 from typing import Dict, List, Optional
 from datetime import datetime
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 # Import existing agent system
 from agents import Runner, SQLiteSession
 from naii_agents.agents import product_manager
+from naii_agents.tools import set_project_context
 import os
 
 # Import our new database system
@@ -106,24 +108,8 @@ def get_or_create_session_id(x_session_id: str = Header(None)) -> str:
 async def run_agent_conversation(message: str, project_id: str) -> str:
     """Run the agent conversation and return the response"""
     try:
-        # Load project-specific document before running agents
-        load_document_for_project(project_id)
-        
-        # Temporarily replace the main document with project-specific one
-        main_doc_path = "./project_docs/NAI_system_configuration.md"
-        project_doc_path = f"./project_docs/{project_id}_NAI_system_configuration.md"
-        backup_path = "./project_docs/NAI_system_configuration.md.backup"
-        
-        # Backup original if it exists
-        if os.path.exists(main_doc_path):
-            if os.path.exists(project_doc_path):
-                os.rename(main_doc_path, backup_path)
-                os.rename(project_doc_path, main_doc_path)
-            # If no project-specific doc exists, keep the main one
-        else:
-            # If no main doc, copy project-specific or create empty
-            if os.path.exists(project_doc_path):
-                os.rename(project_doc_path, main_doc_path)
+        # Set project context for database-aware tools
+        set_project_context(project_id, db)
         
         # Create session for this project
         session = SQLiteSession(f"fastapi-{project_id}", "nai_conversations.sqlite")
@@ -135,68 +121,54 @@ async def run_agent_conversation(message: str, project_id: str) -> str:
             session=session,
         )
         
-        # Restore the document structure after agent processing
-        if os.path.exists(main_doc_path):
-            os.rename(main_doc_path, project_doc_path)
-        if os.path.exists(backup_path):
-            os.rename(backup_path, main_doc_path)
-        
         return result.final_output or "I apologize, but I wasn't able to process your request. Could you please try rephrasing?"
         
     except Exception as e:
         logger.error(f"Error running agents: {e}")
-        # Ensure we restore the document structure even if there's an error
-        try:
-            if os.path.exists("./project_docs/NAI_system_configuration.md"):
-                os.rename("./project_docs/NAI_system_configuration.md", f"./project_docs/{project_id}_NAI_system_configuration.md")
-            if os.path.exists("./project_docs/NAI_system_configuration.md.backup"):
-                os.rename("./project_docs/NAI_system_configuration.md.backup", "./project_docs/NAI_system_configuration.md")
-        except:
-            pass
         raise HTTPException(status_code=500, detail=f"Agent processing error: {str(e)}")
 
-def save_document_to_project(project_id: str):
-    """Save current working document to project-specific database storage"""
+def get_document_content(project_id: str) -> str:
+    """Get document content from database"""
     try:
-        # Read the current document that the agents modified
-        doc_path = f"./project_docs/{project_id}_NAI_system_configuration.md"
-        current_doc = None
-        if os.path.exists(doc_path) and os.path.getsize(doc_path) > 0:
-            with open(doc_path, "r", encoding="utf-8") as f:
-                current_doc = f.read()
-        
-        if current_doc and current_doc.strip() and current_doc != "document could not be found":
-            # Save directly to database
-            document_id = f"doc_{project_id}"
-            if not db.documents.update_content(document_id, current_doc):
-                # Document doesn't exist, create it
-                db.documents.create(document_id, current_doc, project_id)
-            return current_doc
-        return None
-    except Exception as e:
-        logger.error(f"Error saving document for project {project_id}: {e}")
-        return None
-
-def load_document_for_project(project_id: str):
-    """Load project-specific document from database for agent processing"""
-    try:
-        # Get document from database
         document_id = f"doc_{project_id}"
         document = db.documents.get(document_id)
-        if document:
-            # Write it to project-specific working document for agents to use
-            doc_path = f"./project_docs/{project_id}_NAI_system_configuration.md"
-            os.makedirs("./project_docs/", exist_ok=True)
-            with open(doc_path, "w", encoding="utf-8") as f:
-                f.write(document.content)
-        else:
-            # Create empty document if none exists
-            doc_path = f"./project_docs/{project_id}_NAI_system_configuration.md"
-            os.makedirs("./project_docs/", exist_ok=True)
-            with open(doc_path, "w", encoding="utf-8") as f:
-                f.write("# No document available")
+        if document and document.content.strip():
+            return document.content
+        return ""
     except Exception as e:
-        logger.error(f"Error loading document for project {project_id}: {e}")
+        logger.error(f"Error getting document for project {project_id}: {e}")
+        return ""
+
+def cleanup_chat_sessions_for_project(project_id: str):
+    try:
+        session_id = f"fastapi-{project_id}"
+        chat_db_path = "nai_conversations.sqlite"
+        
+        if os.path.exists(chat_db_path):
+            # Connect to the chat sessions database
+            conn = sqlite3.connect(chat_db_path)
+            cursor = conn.cursor()
+            
+            # Delete messages associated with this session
+            cursor.execute("DELETE FROM agent_messages WHERE session_id = ?", (session_id,))
+            messages_deleted = cursor.rowcount
+            
+            # Delete the session itself
+            cursor.execute("DELETE FROM agent_sessions WHERE session_id = ?", (session_id,))
+            session_deleted = cursor.rowcount
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Cleaned up chat session for project {project_id}: deleted {messages_deleted} messages and {session_deleted} session record")
+            return True
+        else:
+            logger.info(f"Chat database not found, no cleanup needed for project {project_id}")
+            return True
+            
+    except Exception as e:
+        logger.error(f"Error cleaning up chat sessions for project {project_id}: {e}")
+        return False
 
 # Background task to cleanup inactive sessions
 import asyncio
@@ -235,7 +207,31 @@ async def join_project(request: JoinProjectRequest,
         if not db.projects.get(request.projectId):
             db.projects.create(request.projectId)
         
-        # Create session for this user/project
+        # Check if this session already exists and is active
+        existing_session = db.sessions.get(session_id)
+        if existing_session and existing_session.is_active:
+            # Update the existing session with new user name if provided
+            if request.userName and existing_session.user_name != request.userName:
+                # Update user name and activity
+                db.sessions.update_activity(session_id)
+                # Note: We'd need a method to update user_name, for now just log it
+                logger.info(f"Session {session_id} already exists, updating activity")
+            
+            return JoinProjectResponse(
+                sessionId=session_id,
+                projectId=request.projectId,
+                message=f"Rejoined project {request.projectId}"
+            )
+        
+        # Deactivate any existing sessions for this user/project combination to prevent duplicates
+        if request.userName:
+            active_sessions = db.sessions.get_active_by_project(request.projectId)
+            for session in active_sessions:
+                if session.user_name == request.userName:
+                    db.sessions.set_inactive(session.session_id)
+                    logger.info(f"Deactivated duplicate session {session.session_id} for user {request.userName}")
+        
+        # Create new session for this user/project
         success = db.sessions.create(
             session_id=session_id,
             project_id=request.projectId,
@@ -281,13 +277,8 @@ async def chat(request: ChatRequest,
         # Update session activity
         db.sessions.update_activity(session_id)
         
-        # Load project-specific document for agent processing
-        load_document_for_project(request.projectId)
-        
         # Get document content before processing
-        document_id = f"doc_{request.projectId}"
-        doc_before_obj = db.documents.get(document_id)
-        doc_before = doc_before_obj.content if doc_before_obj else ""
+        doc_before = get_document_content(request.projectId)
         
         # Create conversation if needed and add user message
         conversation_id = f"conv_{request.projectId}_{session_id}"
@@ -301,8 +292,8 @@ async def chat(request: ChatRequest,
         # Add AI response to history
         db.conversations.add_message(conversation_id, "assistant", ai_response)
         
-        # Save any document changes back to project storage
-        doc_after = save_document_to_project(request.projectId)
+        # Get document content after processing
+        doc_after = get_document_content(request.projectId)
         
         # Get active users
         active_sessions = db.sessions.get_active_by_project(request.projectId)
@@ -436,6 +427,47 @@ async def get_active_users(project_id: str):
         logger.error(f"Error getting active users: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/projects/{project_id}/cleanup-sessions")
+async def cleanup_orphaned_sessions(project_id: str):
+    """Clean up orphaned or duplicate sessions for a project"""
+    try:
+        active_sessions = db.sessions.get_active_by_project(project_id)
+        
+        # Group sessions by username
+        user_sessions = {}
+        orphaned_sessions = []
+        
+        for session in active_sessions:
+            if not session.user_name or session.user_name.strip() == "":
+                orphaned_sessions.append(session)
+            else:
+                if session.user_name not in user_sessions:
+                    user_sessions[session.user_name] = []
+                user_sessions[session.user_name].append(session)
+        
+        cleanup_count = 0
+        
+        # Clean up orphaned sessions (no username)
+        for session in orphaned_sessions:
+            db.sessions.set_inactive(session.session_id)
+            cleanup_count += 1
+            logger.info(f"Cleaned up orphaned session {session.session_id}")
+        
+        # Clean up duplicate sessions (keep the most recent one per user)
+        for user_name, sessions in user_sessions.items():
+            if len(sessions) > 1:
+                # Sort by joined_at_ts, keep the most recent
+                sessions.sort(key=lambda s: s.joined_at_ts, reverse=True)
+                for session in sessions[1:]:  # Deactivate all but the first (most recent)
+                    db.sessions.set_inactive(session.session_id)
+                    cleanup_count += 1
+                    logger.info(f"Cleaned up duplicate session {session.session_id} for user {user_name}")
+        
+        return {"message": f"Cleaned up {cleanup_count} sessions", "cleaned": cleanup_count}
+    except Exception as e:
+        logger.error(f"Error cleaning up sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.delete("/projects/{project_id}")
 async def delete_project(project_id: str):
     """Delete a project and all its data"""
@@ -453,6 +485,10 @@ async def delete_project(project_id: str):
         sessions = db.sessions.get_active_by_project(project_id)
         for session in sessions:
             db.sessions.set_inactive(session.session_id)
+        
+        chat_cleanup_success = cleanup_chat_sessions_for_project(project_id)
+        if not chat_cleanup_success:
+            logger.warning(f"Failed to clean up chat sessions for project {project_id}, but continuing with project deletion")
         
         # Actually delete the project record
         success = db.projects.delete(project_id)

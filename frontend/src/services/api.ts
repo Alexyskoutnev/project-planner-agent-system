@@ -106,6 +106,16 @@ class RealAPI {
     // Clear the session ID after leaving
     this.sessionId = null;
   }
+
+  async cleanupProjectSessions(projectId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/cleanup-sessions`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to cleanup project sessions');
+    }
+  }
 }
 
 export const api = new RealAPI();
