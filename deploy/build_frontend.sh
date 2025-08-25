@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_DIR="/home/ubuntu/project-planner-naii"
+APP_DIR="/home/ubuntu/project-planner-agent-system"
 FRONTEND_DIR="$APP_DIR/frontend"
 NGINX_ROOT="$APP_DIR/frontend/build"
 NGINX_SITE="/etc/nginx/sites-available/project"

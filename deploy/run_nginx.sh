@@ -23,7 +23,7 @@ sudo cp deploy/nginx_config /etc/nginx/sites-available/project
 sudo ln -sf /etc/nginx/sites-available/project /etc/nginx/sites-enabled/
 
 # Link config
-sudo ln -s /home/ubuntu/project-planner-naii /home/ubuntu/app
+sudo ln -s /home/ubuntu/project-planner-agent-system /home/ubuntu/app
 
 # Test nginx configuration
 echo "👉 Testing Nginx configuration..."

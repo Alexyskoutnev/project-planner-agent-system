@@ -2,7 +2,7 @@
 
 # Run backend service
 
-APP_DIR="/home/ubuntu/project-planner-naii"
+APP_DIR="/home/ubuntu/project-planner-agent-system"
 SERVICE_NAME="fastapi"
 
 echo "👉 Creating systemd service for FastAPI..."
@@ -15,7 +15,7 @@ After=network.target
 [Service]
 User=ubuntu
 WorkingDirectory=$APP_DIR
-ExecStart=$APP_DIR/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker api.main:app --bind 0.0.0.0:8000
+ExecStart=$APP_DIR/venv/bin/uvicorn -w 4 -k uvicorn.workers.UvicornWorker api.main:app --bind 0.0.0.0:8000
 Restart=always
 
 [Install]
