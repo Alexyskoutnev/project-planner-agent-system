@@ -15,7 +15,7 @@ After=network.target
 [Service]
 User=ubuntu
 WorkingDirectory=$APP_DIR
-ExecStart=$APP_DIR/venv/bin/uvicorn -w 4 -k uvicorn.workers.UvicornWorker api.main:app --bind 0.0.0.0:8000
+ExecStart=$APP_DIR/venv/bin/uvicorn api.main:app --bind 0.0.0.0:8000
 Restart=always
 
 [Install]
