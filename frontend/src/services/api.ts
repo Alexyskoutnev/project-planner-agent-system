@@ -1,6 +1,6 @@
 import { ChatRequest, ChatResponse, ProjectListResponse, JoinProjectRequest, JoinProjectResponse, HistoryResponse } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 class RealAPI {
   private sessionId: string | null = null;
