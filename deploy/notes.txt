@@ -1,24 +1,53 @@
-# Restart nginx
-sudo nginx -t && sudo systemctl reload nginx
-# Look at error logs
-sudo tail -n 100 /var/log/nginx/error.log
-# Look at normal logs
-sudo tail -n 200 /var/log/nginx/access.log
-# Look at fastapi systemctl
-sudo systemctl status fastapi -l --no-pager
-sudo journalctl -u fastapi -n 200 --no-pager
-# Ping the server
+# Project Planner - Quick Reference Commands
+
+## Service Management
+# Restart services
+sudo systemctl restart fastapi
+sudo systemctl restart nginx
+
+# Check service status
+sudo systemctl status fastapi --no-pager
+sudo systemctl status nginx --no-pager
+
+# View service logs
+sudo journalctl -u fastapi -n 50 --no-pager
+sudo journalctl -u nginx -n 50 --no-pager
+
+## Nginx Management
+# Test nginx configuration
+sudo nginx -t
+
+# Reload nginx (after config changes)
+sudo systemctl reload nginx
+
+# View nginx logs
+sudo tail -n 50 /var/log/nginx/error.log
+sudo tail -n 50 /var/log/nginx/access.log
+
+## API Testing
+# Test frontend
+curl -I http://localhost/
+
+# Test API endpoints
+curl http://localhost/api/health
+curl http://localhost/api/projects
+
+# Test backend directly (bypass nginx)
+curl http://localhost:8000/health
+
+## Network Diagnostics
+# Check what's listening on port 8000
+sudo ss -tlnp | grep :8000
+
+# Ping server
 ping -c 4 54.226.226.2
 
-# Testing all the API interfaces
-[local test]
--- testing Nginx
-curl -I http://127.0.0.1/
-curl -I http://127.0.0.1/app
---- testing backend
-curl -I http://127.0.0.1/api/health
-curl -I http://127.0.0.1:8000/
-
-
-# SSH INTO SERVER
+## SSH Connection
 ssh -i naii-project-planning-app-key.pem ubuntu@54.226.226.2
+
+## Deployment Updates
+# Pull latest code and redeploy
+git pull origin main
+./deploy/build_frontend.sh
+sudo systemctl restart fastapi
+sudo systemctl reload nginx
