@@ -54,4 +54,5 @@ frontend/src/assets/
 frontend/src/components/
 frontend/src/pages/
 
-.claude
+# ---- Claude AI IDE files ----
+.claude/
