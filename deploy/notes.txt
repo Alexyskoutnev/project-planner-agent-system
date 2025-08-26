@@ -9,3 +9,16 @@ sudo systemctl status fastapi -l --no-pager
 sudo journalctl -u fastapi -n 200 --no-pager
 # Ping the server
 ping -c 4 54.226.226.2
+
+# Testing all the API interfaces
+[local test]
+-- testing Nginx
+curl -I http://127.0.0.1/
+curl -I http://127.0.0.1/app
+--- testing backend
+curl -I http://127.0.0.1/api/health
+curl -I http://127.0.0.1:8000/
+
+
+# SSH INTO SERVER
+ssh -i naii-project-planning-app-key.pem ubuntu@54.226.226.2

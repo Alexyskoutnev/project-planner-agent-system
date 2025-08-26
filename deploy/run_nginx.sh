@@ -25,6 +25,10 @@ sudo ln -sf /etc/nginx/sites-available/project /etc/nginx/sites-enabled/
 # Link config
 sudo ln -s /home/ubuntu/project-planner-agent-system /home/ubuntu/app
 
+# Add correct permissions
+sudo chmod 755 /home/ubuntu/project-planner-agent-system
+sudo chmod 755 /home/ubuntu/project-planner-agent-system/frontend
+
 # Test nginx configuration
 echo "👉 Testing Nginx configuration..."
 if sudo nginx -t; then
