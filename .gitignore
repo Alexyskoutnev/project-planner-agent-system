@@ -39,6 +39,7 @@ pip-wheel-metadata/
 nai_conversations.sqlite
 nai_conversations.sqlite-shm
 nai_conversations.sqlite-wal
+project_database.db
 naii_agents/__pycache__/
 
 .venv/**
@@ -52,3 +53,5 @@ frontend/public/
 frontend/src/assets/
 frontend/src/components/
 frontend/src/pages/
+
+.claude
