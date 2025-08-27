@@ -33,6 +33,7 @@ npm install
 
 # Set production environment variables
 export NODE_ENV=production
+# export REACT_APP_API_URL=http://0.0.0.0:8000
 export REACT_APP_API_URL=/api
 
 # Build the frontend with production optimizations

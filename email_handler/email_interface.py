@@ -1,4 +1,3 @@
-"""Email interface definitions for the project planner."""
 from typing import Protocol, Optional, List
 from dataclasses import dataclass
 

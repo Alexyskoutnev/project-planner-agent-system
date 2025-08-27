@@ -1,6 +1,6 @@
 import { ChatRequest, ChatResponse, HistoryResponse, ProjectStatusResponse, JoinProjectResponse, ActiveUser } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 // Session management
 let sessionId: string | null = null;

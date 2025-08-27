@@ -36,13 +36,13 @@ echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
 chmod +x deploy/*.sh
 
 # 1. Setup backend service
-./deploy/run_backend_service.sh
+sudo ./deploy/run_backend_service.sh
 
 # 2. Build frontend
-./deploy/build_frontend.sh
+sudo ./deploy/build_frontend.sh
 
 # 3. Configure Nginx
-./deploy/run_nginx.sh
+sudo ./deploy/run_nginx.sh
 ```
 
 ---

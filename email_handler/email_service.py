@@ -138,8 +138,6 @@ class EmailService:
                   Join Project
                 </a>
               </div>
-              <p>Or copy and paste this link in your browser:</p>
-              <p style="word-break: break-all; color: #6366f1;">{invitation_url}</p>
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
               <p style="color: #6b7280; font-size: 14px;">
                 This invitation will allow you to access the project and collaborate with the team.
