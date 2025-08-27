@@ -1,4 +1,14 @@
-import { ChatRequest, ChatResponse, ProjectListResponse, JoinProjectRequest, JoinProjectResponse, HistoryResponse } from '../types';
+import { 
+  ChatRequest, 
+  ChatResponse, 
+  ProjectListResponse, 
+  JoinProjectRequest, 
+  JoinProjectResponse, 
+  HistoryResponse,
+  DocumentUploadResponse,
+  UploadedDocumentsResponse,
+  UploadedDocument
+} from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
@@ -115,6 +125,140 @@ class RealAPI {
     if (!response.ok) {
       throw new Error('Failed to cleanup project sessions');
     }
+  }
+
+  async uploadDocument(projectId: string, file: File): Promise<DocumentUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: Record<string, string> = {};
+    
+    if (this.sessionId) {
+      headers['X-Session-Id'] = this.sessionId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to upload document: ${error}`);
+    }
+
+    return response.json();
+  }
+
+  async getUploadedDocuments(projectId: string): Promise<UploadedDocumentsResponse> {
+    const headers: Record<string, string> = {};
+    
+    if (this.sessionId) {
+      headers['X-Session-Id'] = this.sessionId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/uploads`, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get uploaded documents');
+    }
+
+    return response.json();
+  }
+
+  async getUploadedDocumentContent(uploadId: string): Promise<UploadedDocument> {
+    const headers: Record<string, string> = {};
+    
+    if (this.sessionId) {
+      headers['X-Session-Id'] = this.sessionId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/uploads/${uploadId}`, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get document content');
+    }
+
+    return response.json();
+  }
+
+  async deleteUploadedDocument(uploadId: string): Promise<void> {
+    const headers: Record<string, string> = {};
+    
+    if (this.sessionId) {
+      headers['X-Session-Id'] = this.sessionId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/uploads/${uploadId}`, {
+      method: 'DELETE',
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete document');
+    }
+  }
+
+  async inviteToProject(projectId: string, inviteRequest: { email: string, inviterName?: string }): Promise<{ success: boolean, message: string, invitationId?: string }> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (this.sessionId) {
+      headers['X-Session-Id'] = this.sessionId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/invite`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(inviteRequest),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to send invitation');
+    }
+
+    return response.json();
+  }
+
+  async validateInvitation(token: string): Promise<{ valid: boolean, projectId?: string, message: string }> {
+    const response = await fetch(`${API_BASE_URL}/invitations/${token}/validate`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to validate invitation');
+    }
+
+    return response.json();
+  }
+
+  async acceptInvitation(token: string): Promise<JoinProjectResponse> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    
+    if (this.sessionId) {
+      headers['X-Session-Id'] = this.sessionId;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/invitations/${token}/accept`, {
+      method: 'POST',
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to accept invitation');
+    }
+
+    const result = await response.json();
+    this.sessionId = result.sessionId; // Update session ID
+    return result;
   }
 }
 

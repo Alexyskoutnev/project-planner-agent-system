@@ -73,3 +73,24 @@ export interface JoinProjectRequest {
   projectId: string;
   userName?: string;
 }
+
+export interface UploadedDocument {
+  uploadId: string;
+  filename: string;
+  fileSize: number;
+  fileType: string;
+  uploadedBy?: string;
+  uploadedAt: number;
+  content?: string;
+}
+
+export interface DocumentUploadResponse {
+  uploadId: string;
+  filename: string;
+  fileSize: number;
+  message: string;
+}
+
+export interface UploadedDocumentsResponse {
+  documents: UploadedDocument[];
+}

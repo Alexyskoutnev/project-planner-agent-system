@@ -11,3 +11,6 @@ sqlmodel>=0.0.24
 
 # Utilities
 python-dotenv
+
+# PDF processing
+PyPDF2>=3.0.0

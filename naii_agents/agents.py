@@ -1,5 +1,5 @@
 from agents import Agent, WebSearchTool
-from .tools import write_doc, read_current_doc, get_current_date, verify_document_saved
+from .tools import write_doc, read_current_doc, get_current_date, verify_document_saved, list_uploaded_documents, read_uploaded_document
 
 product_manager = Agent(
     name="Product Manager",
@@ -35,6 +35,8 @@ product_manager = Agent(
         "- Use WebSearchTool for NAI-specific technology questions\n"
         "- Guide the user logically through the project planning process\n"
         "- If ask a date, use get_current_date() to get the current date and use that in your response for project planning\n"
+        "- Use list_uploaded_documents() to see what documents have been uploaded by users\n"
+        "- Use read_uploaded_document() to analyze user-uploaded documents and incorporate them into project planning\n"
         
         "**DECISION MATRIX:**\n"
         "- Need technical expertise or a specific NAI product question? → transfer_to_engineer\n"
@@ -44,7 +46,7 @@ product_manager = Agent(
         "- Missing user input? → Ask specific questions\n"
         "- Project plan complete? → Present summary and next steps"
     ),
-    tools=[read_current_doc, get_current_date, WebSearchTool()],
+    tools=[read_current_doc, get_current_date, list_uploaded_documents, read_uploaded_document, WebSearchTool()],
 )
 
 engineer = Agent(
@@ -64,9 +66,10 @@ engineer = Agent(
         "   - 'NAI 75-SBC specifications Intel Core i7'\n"
         "   - 'NAI MIL-STD-1553 COSA module'\n"
         "   - 'NAI 3U OpenVPX power supply specifications'\n\n"
-        "For high-level planning questions or if you need more information, hand off back to Product Manager."
+        "For high-level planning questions or if you need more information, hand off back to Product Manager.\n"
+        "Use list_uploaded_documents() and read_uploaded_document() to access user-uploaded technical specifications and requirements."
     ),
-    tools=[read_current_doc, get_current_date, WebSearchTool()],
+    tools=[read_current_doc, get_current_date, list_uploaded_documents, read_uploaded_document, WebSearchTool()],
 )
 
 
@@ -95,9 +98,10 @@ pmo = Agent(
         "## 5.0 Next Steps\n"
         "[What needs to happen next]\n"
         "```\n\n"
-        "**CRITICAL:** Always call write_doc() with the complete document. Never skip this step."
+        "**CRITICAL:** Always call write_doc() with the complete document. Never skip this step.\n"
+        "Use list_uploaded_documents() and read_uploaded_document() to include user-uploaded content in your project documents."
     ),
-    tools=[write_doc, read_current_doc, get_current_date, verify_document_saved],
+    tools=[write_doc, read_current_doc, get_current_date, verify_document_saved, list_uploaded_documents, read_uploaded_document],
 )
 
 """

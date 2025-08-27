@@ -20,6 +20,19 @@ class Document(SQLModel, table=True):
     project_id: str = Field(foreign_key="projects.project_id")
 
 
+class UploadedDocument(SQLModel, table=True):
+    __tablename__ = "uploaded_documents"
+    
+    upload_id: str = Field(primary_key=True)
+    project_id: str = Field(foreign_key="projects.project_id")
+    filename: str = Field()
+    content: str = Field()
+    file_size: int = Field()
+    file_type: str = Field()
+    uploaded_by: Optional[str] = Field(default=None)
+    uploaded_at_ts: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+
+
 class UserSession(SQLModel, table=True):
     __tablename__ = "sessions"
     
@@ -42,6 +55,20 @@ class Conversation(SQLModel, table=True):
     is_active: bool = Field(default=True)  # Track if conversation is still active
 
 
+class Invitation(SQLModel, table=True):
+    __tablename__ = "invitations"
+    
+    invitation_id: str = Field(primary_key=True)
+    project_id: str = Field(foreign_key="projects.project_id")
+    email: str = Field()
+    invited_by: Optional[str] = Field(default=None)  # Who sent the invitation
+    invitation_token: str = Field()  # Unique token for accessing the project
+    created_at_ts: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    expires_at_ts: Optional[int] = Field(default=None)  # Optional expiration
+    is_used: bool = Field(default=False)
+    used_at_ts: Optional[int] = Field(default=None)
+
+
 class DatabaseManager:
     def __init__(self, database_url: str = "sqlite:///project_database.db"):
         self.database_url = database_url
@@ -51,7 +78,7 @@ class DatabaseManager:
     def create_tables(self):
         SQLModel.metadata.create_all(self.engine)
         logging.info(f"Database created: {self.database_url}")
-        logging.info("Tables created: projects, documents, sessions, conversations")
+        logging.info("Tables created: projects, documents, uploaded_documents, sessions, conversations, invitations")
     
     def get_session(self):
         return Session(self.engine)
@@ -157,6 +184,53 @@ class DocumentCRUD:
             return False
 
 
+class UploadedDocumentCRUD:
+    def __init__(self, db_manager: DatabaseManager):
+        self.db = db_manager
+    
+    def create(self, upload_id: str, project_id: str, filename: str, content: str, 
+               file_size: int, file_type: str, uploaded_by: str = None) -> bool:
+        try:
+            with self.db.get_session() as session:
+                uploaded_doc = UploadedDocument(
+                    upload_id=upload_id,
+                    project_id=project_id,
+                    filename=filename,
+                    content=content,
+                    file_size=file_size,
+                    file_type=file_type,
+                    uploaded_by=uploaded_by
+                )
+                session.add(uploaded_doc)
+                session.commit()
+                return True
+        except Exception as e:
+            print(f"Error creating uploaded document: {e}")
+            return False
+    
+    def get(self, upload_id: str) -> Optional[UploadedDocument]:
+        with self.db.get_session() as session:
+            return session.get(UploadedDocument, upload_id)
+    
+    def get_by_project(self, project_id: str) -> list[UploadedDocument]:
+        with self.db.get_session() as session:
+            from sqlmodel import select
+            return list(session.exec(select(UploadedDocument).where(UploadedDocument.project_id == project_id)).all())
+    
+    def delete(self, upload_id: str) -> bool:
+        try:
+            with self.db.get_session() as session:
+                uploaded_doc = session.get(UploadedDocument, upload_id)
+                if uploaded_doc:
+                    session.delete(uploaded_doc)
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error deleting uploaded document: {e}")
+            return False
+
+
 class SessionCRUD:
     def __init__(self, db_manager: DatabaseManager):
         self.db = db_manager
@@ -212,6 +286,22 @@ class SessionCRUD:
                 UserSession.project_id == project_id,
                 UserSession.is_active == True
             ).all()
+    
+    def update_project(self, session_id: str, project_id: str) -> bool:
+        """Update the project_id for an existing session"""
+        try:
+            with self.db.get_session() as session:
+                user_session = session.get(UserSession, session_id)
+                if user_session:
+                    user_session.project_id = project_id
+                    user_session.is_active = True
+                    user_session.last_activity_ts = int(datetime.now(timezone.utc).timestamp())
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error updating session project: {e}")
+            return False
 
 
 class ConversationCRUD:
@@ -322,14 +412,103 @@ class ConversationCRUD:
         return len(conversation.messages) if conversation and conversation.messages else 0
 
 
+class InvitationCRUD:
+    def __init__(self, db_manager: DatabaseManager):
+        self.db = db_manager
+    
+    def create(self, invitation_id: str, project_id: str, email: str, invitation_token: str, invited_by: str = None, expires_at_ts: int = None) -> bool:
+        """Create a new invitation"""
+        try:
+            with self.db.get_session() as session:
+                invitation = Invitation(
+                    invitation_id=invitation_id,
+                    project_id=project_id,
+                    email=email,
+                    invited_by=invited_by,
+                    invitation_token=invitation_token,
+                    expires_at_ts=expires_at_ts
+                )
+                session.add(invitation)
+                session.commit()
+                return True
+        except Exception as e:
+            print(f"Error creating invitation: {e}")
+            return False
+    
+    def get(self, invitation_id: str) -> Optional[Invitation]:
+        """Get invitation by ID"""
+        with self.db.get_session() as session:
+            return session.get(Invitation, invitation_id)
+    
+    def get_by_token(self, invitation_token: str) -> Optional[Invitation]:
+        """Get invitation by token"""
+        with self.db.get_session() as session:
+            return session.query(Invitation).filter(Invitation.invitation_token == invitation_token).first()
+    
+    def get_by_project(self, project_id: str) -> list[Invitation]:
+        """Get all invitations for a project"""
+        with self.db.get_session() as session:
+            return session.query(Invitation).filter(Invitation.project_id == project_id).all()
+    
+    def get_by_email(self, email: str) -> list[Invitation]:
+        """Get all invitations for an email"""
+        with self.db.get_session() as session:
+            return session.query(Invitation).filter(Invitation.email == email).all()
+    
+    def mark_used(self, invitation_id: str) -> bool:
+        """Mark invitation as used"""
+        try:
+            with self.db.get_session() as session:
+                invitation = session.get(Invitation, invitation_id)
+                if invitation:
+                    invitation.is_used = True
+                    invitation.used_at_ts = int(datetime.now(timezone.utc).timestamp())
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error marking invitation as used: {e}")
+            return False
+    
+    def is_valid(self, invitation_token: str) -> bool:
+        """Check if invitation is valid (exists, not used, not expired)"""
+        invitation = self.get_by_token(invitation_token)
+        if not invitation or invitation.is_used:
+            return False
+        
+        # Check if expired
+        if invitation.expires_at_ts:
+            current_ts = int(datetime.now(timezone.utc).timestamp())
+            if current_ts > invitation.expires_at_ts:
+                return False
+        
+        return True
+    
+    def delete(self, invitation_id: str) -> bool:
+        """Delete invitation"""
+        try:
+            with self.db.get_session() as session:
+                invitation = session.get(Invitation, invitation_id)
+                if invitation:
+                    session.delete(invitation)
+                    session.commit()
+                    return True
+                return False
+        except Exception as e:
+            print(f"Error deleting invitation: {e}")
+            return False
+
+
 class ProjectDatabase:
     def __init__(self, 
                  database_url: str = "sqlite:///project_database.db"):
         self.db_manager = DatabaseManager(database_url)
         self.projects = ProjectCRUD(self.db_manager)
         self.documents = DocumentCRUD(self.db_manager)
+        self.uploaded_documents = UploadedDocumentCRUD(self.db_manager)
         self.sessions = SessionCRUD(self.db_manager)
         self.conversations = ConversationCRUD(self.db_manager)
+        self.invitations = InvitationCRUD(self.db_manager)
     
     def get_session(self):
         return self.db_manager.get_session()

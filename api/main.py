@@ -3,11 +3,16 @@ import logging
 import asyncio
 import uuid
 import sqlite3
-from typing import Dict, List, Optional
-from datetime import datetime
-from dotenv import load_dotenv
+import io
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+import secrets
+from typing import Dict, List, Optional
+from datetime import datetime, timedelta, timezone
+from dotenv import load_dotenv
+import PyPDF2
+
+
+from fastapi import FastAPI, HTTPException, Header, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -46,9 +51,24 @@ app = FastAPI(
 )
 
 # CORS middleware for frontend
+# Allow both development and production origins
+allowed_origins = [
+    "http://localhost:3000",      # React dev server
+    "http://127.0.0.1:3000",     # React dev server alternative
+    "http://localhost:8000",      # Development API testing
+    "http://127.0.0.1:8000",     # Development API testing alternative
+]
+
+# In production, add your domain
+import os
+if os.getenv("NODE_ENV") == "production":
+    # Add your production domain here when deploying
+    # allowed_origins.append("https://your-domain.com")
+    pass
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,6 +114,29 @@ class ProjectStatusResponse(BaseModel):
     lastActivity: Optional[str]
     documentLength: int
 
+class DocumentUploadResponse(BaseModel):
+    uploadId: str
+    filename: str
+    fileSize: int
+    message: str
+
+class UploadedDocumentsResponse(BaseModel):
+    documents: List[Dict]
+
+class InviteRequest(BaseModel):
+    email: str
+    inviterName: Optional[str] = None
+
+class InviteResponse(BaseModel):
+    success: bool
+    message: str
+    invitationId: Optional[str] = None
+
+class ValidateInvitationResponse(BaseModel):
+    valid: bool
+    projectId: Optional[str] = None
+    message: str
+
 # Helper functions
 def get_session_id(x_session_id: str = Header(None)) -> Optional[str]:
     """Get session ID from header, don't create new ones"""
@@ -104,6 +147,49 @@ def get_or_create_session_id(x_session_id: str = Header(None)) -> str:
     if not x_session_id:
         return str(uuid.uuid4())
     return x_session_id
+
+def extract_text_from_pdf(pdf_content: bytes) -> str:
+    """Extract text content from PDF bytes"""
+    try:
+        pdf_file = io.BytesIO(pdf_content)
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        
+        text_content = []
+        for page_num, page in enumerate(pdf_reader.pages):
+            try:
+                page_text = page.extract_text()
+                if page_text.strip():  # Only add non-empty pages
+                    text_content.append(f"=== Page {page_num + 1} ===\n{page_text}\n")
+            except Exception as e:
+                logger.warning(f"Failed to extract text from page {page_num + 1}: {e}")
+                text_content.append(f"=== Page {page_num + 1} ===\n[Text extraction failed]\n")
+        
+        if not text_content:
+            return "[PDF appears to be empty or text extraction failed]"
+        
+        return "\n".join(text_content)
+    except Exception as e:
+        logger.error(f"PDF processing error: {e}")
+        return f"[PDF processing error: {str(e)}]"
+
+def send_invitation_email(email: str, 
+                          project_id: str, 
+                          invitation_token: str, 
+                          inviter_name: Optional[str] = None) -> bool:
+    """Send invitation email to the specified email address"""
+    from email_handler.email_service import get_email_service
+    
+    try:
+        email_service = get_email_service()
+        return email_service.send_invitation_email(
+            email=email,
+            project_id=project_id,
+            invitation_token=invitation_token,
+            inviter_name=inviter_name
+        )
+    except Exception as e:
+        logger.error(f"Failed to send invitation email to {email}: {e}")
+        return False
 
 async def run_agent_conversation(message: str, project_id: str) -> str:
     """Run the agent conversation and return the response"""
@@ -502,6 +588,353 @@ async def delete_project(project_id: str):
         logger.error(f"Error deleting project: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     
+@app.post("/projects/{project_id}/upload", response_model=DocumentUploadResponse)
+async def upload_document(
+    project_id: str,
+    file: UploadFile = File(...),
+    session_id: Optional[str] = Depends(get_session_id)
+):
+    """Upload a document to a project"""
+    try:
+        if not session_id:
+            raise HTTPException(status_code=401, detail="No active session. Please join a project first.")
+        
+        # Verify session belongs to this project
+        session = db.sessions.get(session_id)
+        if not session or session.project_id != project_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this project")
+        
+        # Check file size (limit to 10MB)
+        if file.size and file.size > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
+        
+        # Read file content
+        content = await file.read()
+        
+        # Handle different file types
+        if file.content_type == "application/pdf" or (file.filename and file.filename.lower().endswith('.pdf')):
+            # Extract text from PDF
+            content_str = extract_text_from_pdf(content)
+            file_type = "application/pdf"
+        else:
+            # Handle text files
+            try:
+                content_str = content.decode('utf-8')
+                file_type = file.content_type or "text/plain"
+            except UnicodeDecodeError:
+                raise HTTPException(status_code=400, detail="File must be a text file or PDF")
+        
+        # Generate upload ID
+        upload_id = str(uuid.uuid4())
+        
+        # Save to database
+        success = db.uploaded_documents.create(
+            upload_id=upload_id,
+            project_id=project_id,
+            filename=file.filename or "untitled.txt",
+            content=content_str,
+            file_size=len(content),
+            file_type=file_type,
+            uploaded_by=session.user_name
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to save document")
+        
+        # Update session activity
+        db.sessions.update_activity(session_id)
+        
+        return DocumentUploadResponse(
+            uploadId=upload_id,
+            filename=file.filename or "untitled.txt",
+            fileSize=len(content),
+            message="Document uploaded successfully"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error uploading document: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/projects/{project_id}/uploads", response_model=UploadedDocumentsResponse)
+async def get_uploaded_documents(
+    project_id: str,
+    session_id: Optional[str] = Depends(get_session_id)
+):
+    """Get all uploaded documents for a project"""
+    try:
+        if not session_id:
+            raise HTTPException(status_code=401, detail="No active session. Please join a project first.")
+        
+        # Verify session belongs to this project
+        session = db.sessions.get(session_id)
+        if not session or session.project_id != project_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this project")
+        
+        documents = db.uploaded_documents.get_by_project(project_id)
+        docs_data = [{
+            "uploadId": doc.upload_id,
+            "filename": doc.filename,
+            "fileSize": doc.file_size,
+            "fileType": doc.file_type,
+            "uploadedBy": doc.uploaded_by,
+            "uploadedAt": doc.uploaded_at_ts,
+            "content": doc.content[:500] + ("..." if len(doc.content) > 500 else "")  # Preview
+        } for doc in documents]
+        
+        return UploadedDocumentsResponse(documents=docs_data)
+        
+    except Exception as e:
+        logger.error(f"Error getting uploaded documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/uploads/{upload_id}")
+async def get_uploaded_document_content(
+    upload_id: str,
+    session_id: Optional[str] = Depends(get_session_id)
+):
+    """Get full content of an uploaded document"""
+    try:
+        if not session_id:
+            raise HTTPException(status_code=401, detail="No active session. Please join a project first.")
+        
+        document = db.uploaded_documents.get(upload_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Verify session belongs to the document's project
+        session = db.sessions.get(session_id)
+        if not session or session.project_id != document.project_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this project")
+        
+        return {
+            "uploadId": document.upload_id,
+            "filename": document.filename,
+            "content": document.content,
+            "fileSize": document.file_size,
+            "fileType": document.file_type,
+            "uploadedBy": document.uploaded_by,
+            "uploadedAt": document.uploaded_at_ts
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting document content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/uploads/{upload_id}")
+async def delete_uploaded_document(
+    upload_id: str,
+    session_id: Optional[str] = Depends(get_session_id)
+):
+    """Delete an uploaded document"""
+    try:
+        if not session_id:
+            raise HTTPException(status_code=401, detail="No active session. Please join a project first.")
+        
+        document = db.uploaded_documents.get(upload_id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Verify session belongs to the document's project
+        session = db.sessions.get(session_id)
+        if not session or session.project_id != document.project_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this project")
+        
+        success = db.uploaded_documents.delete(upload_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete document")
+        
+        return {"message": "Document deleted successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error deleting document: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Email Invitation endpoints
+@app.post("/projects/{project_id}/invite", response_model=InviteResponse)
+async def invite_to_project(
+    project_id: str,
+    invite_request: InviteRequest,
+    session_id: Optional[str] = Depends(get_session_id)
+):
+    """Send an email invitation to join a project"""
+    try:
+        if not session_id:
+            raise HTTPException(status_code=401, detail="No active session. Please join a project first.")
+        
+        # Verify session belongs to this project
+        session = db.sessions.get(session_id)
+        if not session or session.project_id != project_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this project")
+        
+        # Check if project exists
+        if not db.projects.get(project_id):
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Generate unique invitation ID and token
+        invitation_id = str(uuid.uuid4())
+        invitation_token = secrets.token_urlsafe(32)
+        
+        # Set expiration to 7 days from now
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        expires_at_ts = int(expires_at.timestamp())
+        
+        # Create invitation in database
+        success = db.invitations.create(
+            invitation_id=invitation_id,
+            project_id=project_id,
+            email=invite_request.email,
+            invitation_token=invitation_token,
+            invited_by=invite_request.inviterName or session.user_name,
+            expires_at_ts=expires_at_ts
+        )
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to create invitation")
+        
+        # Send email invitation
+        email_sent = send_invitation_email(
+            invite_request.email,
+            project_id,
+            invitation_token,
+            invite_request.inviterName or session.user_name
+        )
+        
+        if not email_sent:
+            # Still return success if invitation was created, even if email failed
+            return InviteResponse(
+                success=True,
+                message=f"Invitation created but email could not be sent. Share this link manually: /join/{project_id}?token={invitation_token}",
+                invitationId=invitation_id
+            )
+        
+        return InviteResponse(
+            success=True,
+            message=f"Invitation sent to {invite_request.email}",
+            invitationId=invitation_id
+        )
+        
+    except Exception as e:
+        logger.error(f"Error inviting user to project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/invitations/{token}/validate", response_model=ValidateInvitationResponse)
+async def validate_invitation(token: str):
+    """Validate an invitation token and return project details"""
+    try:
+        invitation = db.invitations.get_by_token(token)
+        
+        if not invitation:
+            return ValidateInvitationResponse(
+                valid=False,
+                message="Invalid invitation token"
+            )
+        
+        if invitation.is_used:
+            return ValidateInvitationResponse(
+                valid=False,
+                message="This invitation has already been used"
+            )
+        
+        # Check if expired
+        if invitation.expires_at_ts:
+            current_ts = int(datetime.now(timezone.utc).timestamp())
+            if current_ts > invitation.expires_at_ts:
+                return ValidateInvitationResponse(
+                    valid=False,
+                    message="This invitation has expired"
+                )
+        
+        # Check if project still exists
+        project = db.projects.get(invitation.project_id)
+        if not project:
+            return ValidateInvitationResponse(
+                valid=False,
+                message="The project no longer exists"
+            )
+        
+        return ValidateInvitationResponse(
+            valid=True,
+            projectId=invitation.project_id,
+            message="Invitation is valid"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error validating invitation token {token}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/invitations/{token}/accept")
+async def accept_invitation(
+    token: str,
+    session_id: str = Depends(get_or_create_session_id)
+):
+    """Accept an invitation and join the project"""
+    try:
+        invitation = db.invitations.get_by_token(token)
+        
+        if not invitation or not db.invitations.is_valid(token):
+            raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+        
+        # Check if project still exists
+        project = db.projects.get(invitation.project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project no longer exists")
+        
+        # Mark invitation as used
+        db.invitations.mark_used(invitation.invitation_id)
+        
+        # Create or update session to join the project
+        existing_session = db.sessions.get(session_id)
+        if existing_session:
+            # Update existing session
+            db.sessions.update_project(session_id, invitation.project_id)
+        else:
+            # Create new session
+            db.sessions.create(session_id, invitation.project_id)
+        
+        return JoinProjectResponse(
+            success=True,
+            message=f"Successfully joined project: {invitation.project_id}",
+            projectId=invitation.project_id,
+            sessionId=session_id
+        )
+        
+    except Exception as e:
+        logger.error(f"Error accepting invitation {token}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/projects/{project_id}/invitations")
+async def get_project_invitations(
+    project_id: str,
+    session_id: Optional[str] = Depends(get_session_id)
+):
+    """Get all invitations for a project"""
+    try:
+        if not session_id:
+            raise HTTPException(status_code=401, detail="No active session. Please join a project first.")
+        
+        # Verify session belongs to this project
+        session = db.sessions.get(session_id)
+        if not session or session.project_id != project_id:
+            raise HTTPException(status_code=403, detail="Session does not belong to this project")
+        
+        invitations = db.invitations.get_by_project(project_id)
+        
+        invitations_data = [{
+            "invitationId": inv.invitation_id,
+            "email": inv.email,
+            "invitedBy": inv.invited_by,
+            "createdAt": inv.created_at_ts,
+            "expiresAt": inv.expires_at_ts,
+            "isUsed": inv.is_used,
+            "usedAt": inv.used_at_ts
+        } for inv in invitations]
+        
+        return {"invitations": invitations_data}
+        
+    except Exception as e:
+        logger.error(f"Error getting project invitations for {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}

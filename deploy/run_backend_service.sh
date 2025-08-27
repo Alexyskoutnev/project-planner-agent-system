@@ -47,7 +47,7 @@ Type=simple
 User=ubuntu
 WorkingDirectory=$APP_DIR
 Environment=PATH=$VENV_DIR/bin
-ExecStart=$VENV_DIR/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000
+ExecStart=$VENV_DIR/bin/uvicorn api.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=3
 

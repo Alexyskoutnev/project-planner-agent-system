@@ -15,6 +15,10 @@ interface ProjectRoomProps {
 
 export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState('');
   const { state, dispatch } = useProject();
   const { sendMessage } = useChat(projectId, userName);
 
@@ -142,6 +146,39 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
     }
   };
 
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) {
+      setInviteMessage('Please enter an email address');
+      return;
+    }
+
+    setIsInviting(true);
+    setInviteMessage('');
+
+    try {
+      const response = await api.inviteToProject(projectId, {
+        email: inviteEmail,
+        inviterName: userName
+      });
+
+      if (response.success) {
+        setInviteMessage(`Invitation sent to ${inviteEmail}!`);
+        setInviteEmail('');
+        setTimeout(() => {
+          setShowInviteModal(false);
+          setInviteMessage('');
+        }, 2000);
+      } else {
+        setInviteMessage('Failed to send invitation');
+      }
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      setInviteMessage('Error sending invitation');
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
   return (
     <div className="project-room">
       <div className="project-header">
@@ -157,6 +194,13 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
           </div>
           
           <div className="header-actions">
+            <button 
+              onClick={() => setShowInviteModal(true)} 
+              className="invite-button"
+              title="Invite someone to this project"
+            >
+              ✉️ Invite
+            </button>
             <button 
               onClick={handleSignOut} 
               className="sign-out-button"
@@ -188,6 +232,7 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
             onSendMessage={sendMessage}
             isLoading={state.isLoading}
             isSending={state.isLoading}
+            projectId={projectId}
           />
         </div>
         
@@ -195,6 +240,61 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
           <DocumentViewer document={state.projectDocument} />
         </div>
       </div>
+
+      {/* Invitation Modal */}
+      {showInviteModal && (
+        <div className="modal-overlay" onClick={() => setShowInviteModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Invite Someone to This Project</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowInviteModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="form-group">
+                <label htmlFor="invite-email">Email Address</label>
+                <input
+                  id="invite-email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="colleague@company.com"
+                  className="email-input"
+                  disabled={isInviting}
+                />
+              </div>
+              
+              {inviteMessage && (
+                <div className={`invite-message ${inviteMessage.includes('sent') ? 'success' : 'error'}`}>
+                  {inviteMessage}
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                className="cancel-button"
+                onClick={() => setShowInviteModal(false)}
+                disabled={isInviting}
+              >
+                Cancel
+              </button>
+              <button 
+                className="send-invite-button"
+                onClick={handleInvite}
+                disabled={isInviting || !inviteEmail.trim()}
+              >
+                {isInviting ? '⏳ Sending...' : '📧 Send Invitation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
