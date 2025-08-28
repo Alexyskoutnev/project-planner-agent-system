@@ -90,7 +90,7 @@ class EmailService:
         """
         try:
             handler = self._get_handler()
-            logger.info(f"Using {type(handler).__name__} to send email to {email.to_email}")
+            logger.info( st"Using {type(handler).__name__} to send email to {email.to_email}")
             result = handler.send_email(email)
             
             if result:

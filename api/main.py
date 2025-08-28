@@ -969,6 +969,90 @@ async def get_project_invitations(
 async def health_check():
     return {"status": "ok"}
 
+@app.post("/test-email")
+async def test_email_sending():
+    """Test endpoint to verify email sending works - bypasses session validation"""
+    try:
+        logger.info("=== TESTING EMAIL SENDING ===")
+        
+        # Test email sending directly
+        result = send_invitation_email(
+            email="test@example.com",
+            project_id="TestProject", 
+            invitation_token="test-token-123",
+            inviter_name="Test User"
+        )
+        
+        logger.info(f"=== EMAIL TEST RESULT: {result} ===")
+        
+        return {
+            "success": result, 
+            "message": "Email test completed. Check logs for detailed results.",
+            "check_logs_command": "sudo journalctl -u fastapi -n 50 --no-pager"
+        }
+        
+    except Exception as e:
+        logger.error(f"Test email failed: {type(e).__name__}: {e}", exc_info=True)
+        return {
+            "success": False, 
+            "error": str(e),
+            "message": "Email test failed. Check logs for details."
+        }
+
+@app.get("/test-credentials")
+async def test_credentials():
+    """Test endpoint to check if Microsoft Graph credentials are loaded"""
+    try:
+        logger.info("=== TESTING CREDENTIAL LOADING ===")
+        
+        # Check environment variables
+        env_status = {
+            'TENANT_ID': 'SET' if os.getenv('TENANT_ID') else 'MISSING',
+            'CLIENT_ID': 'SET' if os.getenv('CLIENT_ID') else 'MISSING', 
+            'CLIENT_SECRET': 'SET' if os.getenv('CLIENT_SECRET') else 'MISSING',
+            'USER_EMAIL': os.getenv('USER_EMAIL', 'MISSING')
+        }
+        logger.info(f"Environment variables: {env_status}")
+        
+        # Test email service initialization
+        from email_handler.email_service import get_email_service
+        email_service = get_email_service()
+        handler = email_service._get_handler()
+        handler_type = type(handler).__name__
+        
+        logger.info(f"Email handler type: {handler_type}")
+        
+        # Test Microsoft Graph token (if using Microsoft handler)
+        if handler_type == "MicrosoftGraphAPIEmailHandler":
+            try:
+                logger.info("Testing Microsoft Graph API token...")
+                access_token = handler._get_access_token()
+                token_preview = access_token[:10] + "..." if access_token else "None"
+                logger.info(f"Successfully obtained access token: {token_preview}")
+                token_status = "SUCCESS"
+            except Exception as token_error:
+                logger.error(f"Failed to get access token: {token_error}")
+                token_status = f"FAILED: {str(token_error)}"
+        else:
+            token_status = f"N/A (using {handler_type})"
+        
+        logger.info("=== CREDENTIAL TEST COMPLETE ===")
+        
+        return {
+            "credentials_loaded": env_status,
+            "email_handler": handler_type,
+            "token_test": token_status,
+            "message": "Credential test completed. Check logs for details."
+        }
+        
+    except Exception as e:
+        logger.error(f"Credential test failed: {type(e).__name__}: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Credential test failed. Check logs for details."
+        }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
