@@ -88,8 +88,20 @@ class EmailService:
         Returns:
             True if email was sent successfully, False otherwise
         """
-        handler = self._get_handler()
-        return handler.send_email(email)
+        try:
+            handler = self._get_handler()
+            logger.info(f"Using {type(handler).__name__} to send email to {email.to_email}")
+            result = handler.send_email(email)
+            
+            if result:
+                logger.info(f"Email handler successfully sent email to {email.to_email}")
+            else:
+                logger.warning(f"Email handler failed to send email to {email.to_email}")
+                
+            return result
+        except Exception as e:
+            logger.error(f"Error in email service send_email: {type(e).__name__}: {e}", exc_info=True)
+            return False
     
     def send_invitation_email(
         self,

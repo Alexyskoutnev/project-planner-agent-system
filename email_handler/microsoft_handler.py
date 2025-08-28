@@ -53,14 +53,21 @@ class MicrosoftGraphAPIEmailHandler(EmailSender, EmailFetcher):
         }
         
         try:
+            logger.info(f"Requesting access token from {token_url}")
             response = requests.post(token_url, data=token_data, timeout=self.timeout_seconds)
+            
+            if response.status_code != 200:
+                logger.error(f"Token request failed with status {response.status_code}: {response.text}")
+                
             response.raise_for_status()
             token_info = response.json()
             
             access_token = token_info.get('access_token')
             if not access_token:
+                logger.error(f"Access token not found in response: {token_info}")
                 raise ValueError("Access token not found in response")
             
+            logger.info("Successfully obtained access token")
             return access_token
             
         except requests.RequestException as e:
@@ -77,6 +84,7 @@ class MicrosoftGraphAPIEmailHandler(EmailSender, EmailFetcher):
             True if email was sent successfully, False otherwise
         """
         try:
+            logger.info(f"Getting access token for sending email to {email.to_email}")
             access_token = self._get_access_token()
             send_mail_url = f"https://graph.microsoft.com/v1.0/users/{self.user_email}/sendMail"
             
@@ -86,21 +94,32 @@ class MicrosoftGraphAPIEmailHandler(EmailSender, EmailFetcher):
                 'Accept': 'application/json'
             }
             
-            logger.info(f"Sending email to {email.to_email} from {self.user_email}")
+            logger.info(f"Sending email to {email.to_email} from {self.user_email} via Graph API")
+            email_payload = email.to_graph_api()
+            logger.debug(f"Email payload: {email_payload}")
             
             response = requests.post(
                 send_mail_url,
                 headers=headers,
-                json=email.to_graph_api(),
+                json=email_payload,
                 timeout=self.timeout_seconds
             )
+            
+            if response.status_code not in [200, 202]:
+                logger.error(f"Send email failed with status {response.status_code}: {response.text}")
+            
             response.raise_for_status()
             
             logger.info(f"Email sent successfully to {email.to_email}")
             return True
             
+        except requests.RequestException as e:
+            logger.error(f"HTTP request failed when sending email to {email.to_email}: {type(e).__name__}: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"Response status: {e.response.status_code}, Response body: {e.response.text}")
+            return False
         except Exception as e:
-            logger.error(f"Failed to send email to {email.to_email}: {e}")
+            logger.error(f"Unexpected error sending email to {email.to_email}: {type(e).__name__}: {e}", exc_info=True)
             return False
     
     def fetch_email(self, email_id: str) -> EmailMessage:

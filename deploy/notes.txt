@@ -55,3 +55,6 @@ git pull origin main
 ./deploy/build_frontend.sh
 sudo systemctl restart fastapi
 sudo systemctl reload nginx
+
+# Copy .env credentials
+scp -i naii-project-planning-app-key.pem .env ubuntu@54.226.226.2:/home/ubuntu/project-planner-agent-system

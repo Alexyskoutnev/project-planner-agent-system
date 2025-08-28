@@ -47,6 +47,7 @@ Type=simple
 User=ubuntu
 WorkingDirectory=$APP_DIR
 Environment=PATH=$VENV_DIR/bin
+EnvironmentFile=/etc/fastapi.env
 ExecStart=$VENV_DIR/bin/uvicorn api.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=3

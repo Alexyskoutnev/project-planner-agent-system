@@ -184,15 +184,41 @@ def send_invitation_email(email: str,
     from email_handler.email_service import get_email_service
     
     try:
+        logger.info(f"Attempting to send invitation email to {email} for project {project_id}")
+        
+        # Get email service and check what handler it's using
         email_service = get_email_service()
-        return email_service.send_invitation_email(
+        handler = email_service._get_handler()
+        logger.info(f"Using email handler: {type(handler).__name__}")
+        
+        # Log environment variables (without exposing secrets)
+        env_vars = {
+            'TENANT_ID': 'SET' if os.getenv('TENANT_ID') else 'MISSING',
+            'CLIENT_ID': 'SET' if os.getenv('CLIENT_ID') else 'MISSING', 
+            'CLIENT_SECRET': 'SET' if os.getenv('CLIENT_SECRET') else 'MISSING',
+            'USER_EMAIL': os.getenv('USER_EMAIL', 'MISSING'),
+            'SENDER_EMAIL': 'SET' if os.getenv('SENDER_EMAIL') else 'MISSING',
+            'SENDER_PASSWORD': 'SET' if os.getenv('SENDER_PASSWORD') else 'MISSING',
+            'SMTP_SERVER': os.getenv('SMTP_SERVER', 'MISSING')
+        }
+        logger.info(f"Email configuration status: {env_vars}")
+        
+        result = email_service.send_invitation_email(
             email=email,
             project_id=project_id,
             invitation_token=invitation_token,
             inviter_name=inviter_name
         )
+        
+        if result:
+            logger.info(f"Successfully sent invitation email to {email}")
+        else:
+            logger.error(f"Failed to send invitation email to {email} - email service returned False")
+            
+        return result
+        
     except Exception as e:
-        logger.error(f"Failed to send invitation email to {email}: {e}")
+        logger.error(f"Exception while sending invitation email to {email}: {type(e).__name__}: {e}", exc_info=True)
         return False
 
 async def run_agent_conversation(message: str, project_id: str) -> str:
