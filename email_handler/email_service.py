@@ -90,7 +90,7 @@ class EmailService:
         """
         try:
             handler = self._get_handler()
-            logger.info( st"Using {type(handler).__name__} to send email to {email.to_email}")
+            logger.info(f"Using {type(handler).__name__} to send email to {email.to_email}")
             result = handler.send_email(email)
             
             if result:
@@ -124,7 +124,7 @@ class EmailService:
             True if email was sent successfully, False otherwise
         """
         base_url = base_url or os.getenv("BASE_URL", "http://localhost:3000")
-        invitation_url = f"{base_url}/join/{project_id}?token={invitation_token}"
+        invitation_url = f"{base_url}/"
         
         # Create email content
         inviter_text = f" by {inviter_name}" if inviter_name else ""
@@ -137,7 +137,7 @@ class EmailService:
               <h2 style="color: #6366f1;">Project Collaboration Invitation</h2>
               <p>Hi there!</p>
               <p>You've been invited{inviter_text} to collaborate on the project "<strong>{project_id}</strong>".</p>
-              <p>Click the button below to join the project:</p>
+              <p>Click the button below to get started:</p>
               <div style="text-align: center; margin: 30px 0;">
                 <a href="{invitation_url}" 
                    style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
@@ -147,12 +147,12 @@ class EmailService:
                           border-radius: 8px; 
                           display: inline-block;
                           font-weight: bold;">
-                  Join Project
+                  Get Started
                 </a>
               </div>
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
               <p style="color: #6b7280; font-size: 14px;">
-                This invitation will allow you to access the project and collaborate with the team.
+                You can join the project "{project_id}" and start collaborating with the team.
                 If you didn't expect this invitation, you can safely ignore this email.
               </p>
             </div>
@@ -167,7 +167,7 @@ class EmailService:
         
         You've been invited{inviter_text} to collaborate on the project "{project_id}".
         
-        To join the project, visit: {invitation_url}
+        To get started, visit: {invitation_url}
         
         If you didn't expect this invitation, you can safely ignore this email.
         """

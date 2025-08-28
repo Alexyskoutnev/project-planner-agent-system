@@ -833,13 +833,13 @@ async def invite_to_project(
             # Still return success if invitation was created, even if email failed
             return InviteResponse(
                 success=True,
-                message=f"Invitation created but email could not be sent. Share this link manually: /join/{project_id}?token={invitation_token}",
+                message=f"Invitation created but email could not be sent. Ask them to visit the site directly to join project '{project_id}'.",
                 invitationId=invitation_id
             )
         
         return InviteResponse(
             success=True,
-            message=f"Invitation sent to {invite_request.email}",
+            message=f"Invitation sent to {invite_request.email}. They will receive a link to join the project.",
             invitationId=invitation_id
         )
         
