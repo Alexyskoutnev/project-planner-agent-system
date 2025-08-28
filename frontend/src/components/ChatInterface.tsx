@@ -64,15 +64,15 @@ export function ChatInterface({ messages, onSendMessage, isLoading, isSending, p
       await loadUploadedDocuments(); // Reload documents list
       
       // Get file type emoji for message
-      const getFileEmoji = (filename: string) => {
-        if (filename.toLowerCase().endsWith('.pdf')) return '📄';
-        if (filename.toLowerCase().endsWith('.md')) return '📋';
-        if (filename.toLowerCase().endsWith('.json')) return '⚙️';
-        if (filename.toLowerCase().endsWith('.txt')) return '📝';
-        return '📄';
+      const getFileType = (filename: string) => {
+        if (filename.toLowerCase().endsWith('.pdf')) return 'PDF';
+        if (filename.toLowerCase().endsWith('.md')) return 'MD';
+        if (filename.toLowerCase().endsWith('.json')) return 'JSON';
+        if (filename.toLowerCase().endsWith('.txt')) return 'TXT';
+        return 'FILE';
       };
       
-      onSendMessage(`${getFileEmoji(file.name)} Uploaded document: ${file.name}`);
+      onSendMessage(`[${getFileType(file.name)}] Uploaded document: ${file.name}`);
     } catch (error) {
       console.error('Upload failed:', error);
       alert('Failed to upload file');
@@ -94,7 +94,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading, isSending, p
   const handleDocumentClick = async (doc: UploadedDocument) => {
     try {
       const fullDoc = await api.getUploadedDocumentContent(doc.uploadId);
-      onSendMessage(`📄 Please analyze this document "${fullDoc.filename}":\n\n${fullDoc.content}`);
+      onSendMessage(`Please analyze this document "${fullDoc.filename}":\n\n${fullDoc.content}`);
     } catch (error) {
       console.error('Failed to load document content:', error);
       alert('Failed to load document content');
@@ -180,7 +180,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading, isSending, p
             onClick={() => setShowDocuments(!showDocuments)}
             className={`documents-toggle ${showDocuments ? 'active' : ''}`}
           >
-            📁 Documents ({uploadedDocuments.length})
+Documents ({uploadedDocuments.length})
           </button>
         </div>
         {isLoading && <div className="loading-indicator">AI is thinking...</div>}
@@ -254,7 +254,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading, isSending, p
                     className="delete-button"
                     title="Delete document"
                   >
-                    🗑️
+                    Delete
                   </button>
                 </div>
               ))
@@ -284,8 +284,8 @@ export function ChatInterface({ messages, onSendMessage, isLoading, isSending, p
             disabled={isDisabled}
             className={`upload-button ${isUploading ? 'uploading' : ''}`}
             title={isUploading ? "Uploading..." : "Upload document (PDF, TXT, MD, JSON)"}
-          >
-            {isUploading ? '⏳' : '📎'}
+            >
+            {isUploading ? '...' : '+'}
           </button>
           <input
             ref={inputRef}
@@ -304,7 +304,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading, isSending, p
             disabled={!inputMessage.trim() || isDisabled}
             className="send-button"
           >
-            {isDisabled ? (isLoading ? "Sending..." : isUploading ? "Upload..." : "Wait...") : "Send"}
+            {isDisabled ? "..." : "→"}
           </button>
         </div>
       </form>

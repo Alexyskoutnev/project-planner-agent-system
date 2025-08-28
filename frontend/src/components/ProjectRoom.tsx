@@ -186,9 +186,9 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
           <div className="project-info">
             <h1 className="project-title">{projectId}</h1>
             <div className="project-meta">
-              {userName && <span className="current-user">👤 {userName}</span>}
+              {userName && <span className="current-user">User: {userName}</span>}
               <span className="active-count">
-                🟢 {state.activeUsers.length} active user{state.activeUsers.length !== 1 ? 's' : ''}
+                {state.activeUsers.length} active user{state.activeUsers.length !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
@@ -199,14 +199,14 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
               className="invite-button"
               title="Invite someone to this project"
             >
-              ✉️ Invite
+Invite
             </button>
             <button 
               onClick={handleSignOut} 
               className="sign-out-button"
               disabled={isSigningOut}
             >
-              {isSigningOut ? '⏳ Signing Out...' : '← Sign Out'}
+              {isSigningOut ? 'Signing Out...' : 'Sign Out'}
             </button>
           </div>
         </div>
@@ -251,7 +251,7 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
                 className="modal-close"
                 onClick={() => setShowInviteModal(false)}
               >
-                ×
+                Close
               </button>
             </div>
             
@@ -289,7 +289,7 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
                 onClick={handleInvite}
                 disabled={isInviting || !inviteEmail.trim()}
               >
-                {isInviting ? '⏳ Sending...' : '📧 Send Invitation'}
+                {isInviting ? 'Sending...' : 'Send Invitation'}
               </button>
             </div>
           </div>

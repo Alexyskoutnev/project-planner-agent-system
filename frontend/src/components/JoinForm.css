@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  background: #f8f9fa;
   padding: 2rem;
 }
 
@@ -66,8 +66,8 @@
 .join-button {
   width: 100%;
   padding: 1rem 1.5rem;
-  background: linear-gradient(135deg, var(--success-color) 0%, var(--success-hover) 100%);
-  color: var(--white);
+  background: #6c757d;
+  color: #ffffff;
   border: none;
   border-radius: 8px;
   font-size: 1.1rem;
@@ -83,9 +83,9 @@
 }
 
 .join-button:hover {
-  background: linear-gradient(135deg, var(--success-hover) 0%, #047857 100%);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  background: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .info-box {

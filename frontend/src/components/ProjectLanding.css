@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  background: #f0f2f5;
   padding: 20px;
 }
 
@@ -113,8 +113,8 @@
 
 .create-button {
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
-  color: var(--white);
+  background: #6c757d;
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   font-size: 1rem;
@@ -127,9 +127,9 @@
 }
 
 .create-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-hover) 0%, #3730a3 100%);
+  background: #5a6268;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .create-button:disabled {
@@ -243,23 +243,23 @@
 
 .join-button {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, var(--success-color) 0%, var(--success-hover) 100%);
-  color: var(--white);
+  background: #28a745;
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   font-size: 0.9rem;
   font-weight: 500;
   min-width: 60px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   white-space: nowrap;
 }
 
 .join-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  background: #218838;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .join-button:disabled {
@@ -271,23 +271,23 @@
 
 .delete-button {
   padding: 0.6rem 1.2rem;
-  background: linear-gradient(135deg, var(--danger-color) 0%, var(--danger-hover) 100%);
-  color: var(--white);
+  background: #dc3545;
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   font-size: 0.9rem;
   font-weight: 500;
   min-width: 70px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   white-space: nowrap;
 }
 
 .delete-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--danger-hover) 0%, #b91c1c 100%);
+  background: #c82333;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .delete-button:disabled {
@@ -305,8 +305,8 @@
 }
 
 .info-box {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-  color: var(--white);
+  background: #6c757d;
+  color: #ffffff;
   padding: 1.5rem;
   border-radius: 8px;
   margin-top: 2rem;
@@ -314,7 +314,7 @@
 
 .info-box h3 {
   margin: 0 0 1rem 0;
-  color: var(--white);
+  color: #ffffff;
 }
 
 .info-box ul {

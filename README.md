@@ -82,5 +82,3 @@ curl -X POST http://localhost:8000/test-email    # Test email system
 ```
 
 ---
-
-**Live Demo:** http://54.226.226.2 | **API:** http://54.226.226.2/api

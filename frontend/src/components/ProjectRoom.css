@@ -25,14 +25,14 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--gray-50);
+  background: #f8f9fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .project-header {
-  background: var(--white);
-  border-bottom: 1px solid var(--gray-200);
-  box-shadow: var(--shadow-sm);
+  background: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .header-main {
@@ -84,16 +84,16 @@
 }
 
 .sign-out-button {
-  background: linear-gradient(135deg, var(--danger-color) 0%, var(--danger-hover) 100%);
+  background: #dc3545;
   border: none;
-  color: var(--white);
+  color: #ffffff;
   padding: 0.6rem 1.5rem;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.875rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-sm);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -103,9 +103,9 @@
 }
 
 .sign-out-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--danger-hover) 0%, #b91c1c 100%);
+  background: #c82333;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .sign-out-button:active:not(:disabled) {
@@ -122,28 +122,28 @@
 }
 
 .invite-button {
-  background: linear-gradient(135deg, var(--success-color) 0%, var(--success-hover) 100%);
+  background: #6c757d;
   border: none;
-  color: var(--white);
+  color: #ffffff;
   padding: 0.6rem 1.5rem;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.875rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-sm);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   gap: 0.5rem;
   white-space: nowrap;
-  min-width: 100px;
+  min-width: 120px;
   justify-content: center;
 }
 
 .invite-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--success-hover) 0%, #047857 100%);
+  background: #5a6268;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .invite-button:active:not(:disabled) {
