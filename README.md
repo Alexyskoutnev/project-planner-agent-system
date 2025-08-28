@@ -1,101 +1,104 @@
-# NAI Project Planner
+# 🚀 NAI Project Planner
 
-A multi-user AI-powered project planning system with both web and API interfaces. Features real-time collaboration, persistent state management, and integration with NAI's specialized hardware planning agents.
+An AI-powered collaborative project planning system with real-time multi-user support and intelligent agents.
 
-## 🚀 Quick Start
+## ⚡ Quick Start
 
-### Option 1: Enhanced Multi-User API (Recommended)
 ```bash
-# Install dependencies
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# Set up environment
+# 2. Set up environment
 echo "OPENAI_API_KEY=your-key-here" > .env
 
-# Run API server
-python run_api_server.py
+# 3. Start backend
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 
-# Run React frontend (in another terminal)
-cd frontend
-npm install
-REACT_APP_USE_MOCK=false npm start
+# 4. Start frontend (new terminal)
+cd frontend && npm install && npm start
 ```
 
-### Option 2: Original Streamlit App
-```bash
-pip install -r requirements.txt
-streamlit run app.py
+Visit: **http://localhost:3000**
+
+## 🎯 Key Features
+
+- **🤝 Multi-user collaboration** - Real-time project sharing
+- **🤖 AI agents** - Product Manager, Engineer, and PMO assistants  
+- **📊 Project persistence** - All data saved automatically
+- **📧 Email invitations** - Invite team members via email
+- **📱 Modern UI** - React-based responsive interface
+
+## 🏗️ Architecture
+
 ```
-
-## 🎯 Features
-
-### Enhanced API System
-- **Multi-user collaboration**: Real-time session management with active user tracking
-- **Project-specific storage**: Each project gets its own document and conversation history
-- **SQLite persistence**: All data survives server restarts
-- **REST API**: Clean HTTP endpoints for integration
-- **React frontend**: Modern, responsive user interface
-
-### Agent System
-- **Product Manager**: Orchestrates project planning and user communication
-- **Engineer**: Provides NAI hardware expertise and technical guidance
-- **PMO**: Maintains structured project documentation
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   React App     │───▶│   FastAPI       │───▶│   SQLite DB     │
+│   (Port 3000)   │    │   (Port 8000)   │    │   + Documents   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
 ## 📁 Project Structure
 
 ```
-├── api/                   # FastAPI backend
-│   └── main.py               # Complete API with state management
-├── database/              # Database layer
-│   └── database.py           # SQLite state management
-├── frontend/              # React frontend
-│   ├── src/
-│   └── package.json
-├── naii_agents/           # AI agents
-│   ├── agents.py             # Agent definitions
-│   └── tools.py              # Agent tools
-├── project_docs/          # Generated documents
-├── app.py                 # Original Streamlit app
-├── run_api_server.py      # Main API runner
-└── test_system.py         # System tests
+├── api/              # FastAPI backend
+├── frontend/         # React frontend  
+├── email_handler/    # Email system
+├── database/         # Data persistence
+├── naii_agents/      # AI agents
+└── deploy/          # Deployment scripts
 ```
-
-## 🔗 API Endpoints
-
-### Enhanced API (Port 8000)
-- `POST /join` - Join project with session management
-- `POST /chat` - Send message and get AI response
-- `GET /document/{project_id}` - Get project document
-- `GET /history/{project_id}` - Get conversation history
-- `GET /projects` - List all projects
-- `GET /projects/{project_id}/status` - Get project status
-- `DELETE /projects/{project_id}` - Clear project data
-
-### Frontend (Port 3000)
-- Modern React interface with real-time updates
-- Split-screen chat and document view
-- User session management
-
-## 🧪 Testing
-
-```bash
-# Test the reorganized system
-python test_system.py
-
-# Test API components
-cd api && python test_enhanced_api.py
-```
-
-## 📊 Database Schema
-
-- **projects**: Project metadata and tracking
-- **project_documents**: Per-project document storage  
-- **user_sessions**: Active user session management
-- **conversation_history**: Full chat history per project
 
 ## 🔧 Configuration
 
-Environment variables:
-- `OPENAI_API_KEY`: Required for AI agents
-- `REACT_APP_USE_MOCK`: Set to `false` to use real API
-- `REACT_APP_API_URL`: API base URL (default: http://localhost:8000)
+**Required Environment Variables:**
+```bash
+OPENAI_API_KEY=sk-...           # OpenAI API access
+TENANT_ID=...                   # Microsoft Graph (email)
+CLIENT_ID=...                   # Microsoft Graph (email)  
+CLIENT_SECRET=...               # Microsoft Graph (email)
+USER_EMAIL=...                  # Sender email address
+```
+
+## 🚀 Deployment
+
+**Development:**
+```bash
+./run_dev.sh
+```
+
+**Production:**
+```bash
+./run_prod.sh
+```
+
+**Server Setup:**
+```bash
+./deploy/run_backend_service.sh    # Sets up systemd service
+```
+
+## 📖 Usage
+
+1. **Create/Join Project** - Enter project name to start
+2. **Chat with AI** - Get help from specialized agents
+3. **Invite Team** - Send email invitations to collaborators  
+4. **View Documents** - Auto-generated project documentation
+5. **Track Progress** - Real-time collaboration and updates
+
+## 🛠️ Development
+
+**API Endpoints:**
+- `POST /join` - Join project
+- `POST /chat` - Send message  
+- `POST /projects/{id}/invite` - Send invitation
+- `GET /history/{id}` - Get chat history
+- `GET /health` - Health check
+
+**Testing:**
+```bash
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/test-email    # Test email system
+```
+
+---
+
+**Live Demo:** http://54.226.226.2 | **API:** http://54.226.226.2/api
