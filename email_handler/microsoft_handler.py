@@ -1,7 +1,6 @@
 import logging
 import os
 import requests
-from typing import Optional
 from dataclasses import dataclass
 
 from .email_interface import EmailSender, EmailFetcher, EmailMessage, EmailAttachment

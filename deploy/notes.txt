@@ -1,5 +1,8 @@
 # Project Planner - Quick Reference Commands
 
+## SSH Connection
+ssh -i naii-project-planning-app-key.pem ubuntu@54.226.226.2
+
 ## Service Management
 # Restart services
 sudo systemctl restart fastapi
@@ -24,6 +27,10 @@ sudo systemctl reload nginx
 sudo tail -n 50 /var/log/nginx/error.log
 sudo tail -n 50 /var/log/nginx/access.log
 
+# View fastapi logs
+sudo systemctl status fastapi --no-pager
+sudo journalctl -u fastapi -n 50 --no-pager
+
 ## API Testing
 # Test frontend
 curl -I http://localhost/
@@ -41,9 +48,6 @@ sudo ss -tlnp | grep :8000
 
 # Ping server
 ping -c 4 54.226.226.2
-
-## SSH Connection
-ssh -i naii-project-planning-app-key.pem ubuntu@54.226.226.2
 
 ## Deployment Updates
 # Pull latest code and redeploy

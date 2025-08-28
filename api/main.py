@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import asyncio
 import uuid
@@ -25,8 +26,11 @@ import os
 # Import our new database system
 from database.database import ProjectDatabase
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -791,13 +795,13 @@ async def invite_to_project(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create invitation")
         
-        # Send email invitation
         email_sent = send_invitation_email(
             invite_request.email,
             project_id,
             invitation_token,
             invite_request.inviterName or session.user_name
         )
+        logger.info(f"Email sent details: {email_sent}")
         
         if not email_sent:
             # Still return success if invitation was created, even if email failed
