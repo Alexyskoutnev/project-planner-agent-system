@@ -123,7 +123,7 @@ class EmailService:
         Returns:
             True if email was sent successfully, False otherwise
         """
-        base_url = base_url or os.getenv("BASE_URL", "http://localhost:3000")
+        base_url = base_url or os.getenv("BASE_URL", "http://54.226.226.2")
         invitation_url = f"{base_url}/"
         
         # Create email content
