@@ -45,12 +45,16 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
+Environment="PYTHONUNBUFFERED=1"
+Environment="LOG_LEVEL=DEBUG"
 WorkingDirectory=$APP_DIR
 Environment=PATH=$VENV_DIR/bin
 EnvironmentFile=/etc/fastapi.env
 ExecStart=$VENV_DIR/bin/uvicorn api.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=3
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
