@@ -99,7 +99,7 @@ export function ProjectLanding({ onJoin }: ProjectLandingProps) {
   return (
     <div className="project-landing-container">
       <div className="project-landing">
-        <h1>NAII Project Planning</h1>
+        <h1>NAI Project Planning</h1>
 
         {error && (
           <div className="error-message">

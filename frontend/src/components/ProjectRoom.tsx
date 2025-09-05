@@ -206,7 +206,7 @@ Invite
               className="sign-out-button"
               disabled={isSigningOut}
             >
-              {isSigningOut ? 'Signing Out...' : 'Sign Out'}
+              {isSigningOut ? 'Signing Out...' : 'Back to Landing'}
             </button>
           </div>
         </div>
