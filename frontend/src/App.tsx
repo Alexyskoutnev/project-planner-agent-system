@@ -3,7 +3,7 @@ import { getCurrentUser, fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ProjectRoom } from './components/ProjectRoom';
 import { ProjectLanding } from './components/ProjectLanding';
-import { Login } from './components/Login';
+// import { Login } from './components/Login';
 import { api } from './services/api';
 import './App.css';
 
