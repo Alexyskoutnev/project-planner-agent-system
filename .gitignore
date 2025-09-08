@@ -56,3 +56,14 @@ frontend/src/pages/
 
 # ---- Claude AI IDE files ----
 .claude/
+
+# ----- Ignore env files -----
+.env.*
+.env.example
+.env.production
+.env.development
+.env.test
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

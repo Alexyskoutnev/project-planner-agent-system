@@ -5,25 +5,36 @@ import asyncio
 import uuid
 import sqlite3
 import io
+import time
+import base64
 
 import secrets
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import PyPDF2
+import requests
+
+try:
+    import jwt  # PyJWT
+    if not hasattr(jwt, 'encode'):
+        raise ImportError("Wrong JWT library - need PyJWT")
+except ImportError:
+    print("ERROR: PyJWT library not found. Install with: pip install PyJWT")
+    raise
 
 
-from fastapi import FastAPI, HTTPException, Header, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Header, Depends, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
 
-# Import existing agent system
 from agents import Runner, SQLiteSession
 from naii_agents.agents import product_manager
 from naii_agents.tools import set_project_context
 import os
 
-# Import our new database system
 from database.database import ProjectDatabase
 
 logging.basicConfig(
@@ -33,10 +44,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables
 load_dotenv()
 
-# Check for OpenAI API key
+# Duo Configuration - Environment-based for local/production
+DUO_CLIENT_ID = os.getenv("DUO_CLIENT_ID", "")
+DUO_SECRET = os.getenv("DUO_SECRET", "")
+DUO_API_HOST = os.getenv("DUO_API_HOST", "")
+
+# Environment-aware URLs
+ENVIRONMENT = os.getenv("NODE_ENV", "development")
+if ENVIRONMENT == "production":
+    REDIRECT_URI = os.getenv("REDIRECT_URI", "https://naii-project-planner.naii.com/auth/duocallback")
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "https://naii-project-planner.naii.com")
+else:
+    REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8000/auth/duocallback")
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+# Default Duo username (from C# code)
+DEFAULT_DUO_USERNAME = "ddicocco"
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     logger.error("OpenAI API key not found. Please set OPENAI_API_KEY environment variable.")
@@ -44,18 +70,25 @@ if not OPENAI_API_KEY:
 
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
-# Initialize database
 db = ProjectDatabase()
 
-# FastAPI app
+def _now_utc() -> int:
+    return int(time.time())
+
+def _random_state(n: int = 16) -> str:
+    return base64.urlsafe_b64encode(secrets.token_bytes(n)).decode().rstrip("=")
+
 app = FastAPI(
     title="NAI Project Planning API",
     description="Multi-user AI-powered project planning with state management",
     version="2.0.0"
 )
 
+app.add_middleware(SessionMiddleware, 
+                   secret_key=os.getenv("SESSION_SECRET", "dev-session-secret-for-duo"))
+
 # CORS middleware for frontend
-# Allow both development and production origins
+# Environment-aware CORS origins
 allowed_origins = [
     "http://localhost:3000",      # React dev server
     "http://127.0.0.1:3000",     # React dev server alternative
@@ -63,12 +96,13 @@ allowed_origins = [
     "http://127.0.0.1:8000",     # Development API testing alternative
 ]
 
-# In production, add your domain
-import os
-if os.getenv("NODE_ENV") == "production":
-    # Add your production domain here when deploying
-    # allowed_origins.append("https://your-domain.com")
-    pass
+# Add production origins
+if ENVIRONMENT == "production":
+    allowed_origins.extend([
+        "https://naii-project-planner.naii.com",
+        "http://172.28.3.20:8000",      # Internal IP for API
+        "http://172.28.3.20:3000",      # Internal IP for frontend
+    ])
 
 app.add_middleware(
     CORSMiddleware,
@@ -140,6 +174,19 @@ class ValidateInvitationResponse(BaseModel):
     valid: bool
     projectId: Optional[str] = None
     message: str
+
+# Duo Authentication Models
+class TokenResponseDUO(BaseModel):
+    access_token: str
+    id_token: str
+    token_type: Optional[str] = None
+    expires_in: Optional[int] = None
+    scope: Optional[str] = None
+
+class DuoUserInfo(BaseModel):
+    userId: str
+    username: str
+    authenticated: bool = True
 
 # Helper functions
 def get_session_id(x_session_id: str = Header(None)) -> Optional[str]:
@@ -313,6 +360,146 @@ app.router.lifespan_context = lifespan
 @app.get("/")
 async def root():
     return {"message": "NAI Project Planning API v2.0 is running"}
+
+# Duo Authentication Endpoints
+@app.get("/start-duo-login")
+def start_duo_login(request: Request, 
+                    duo_uname: Optional[str] = None) -> RedirectResponse:
+    """
+    Builds Duo 'request' JWT and redirects to Duo /oauth/v1/authorize.
+    Stores CSRF 'state' in session.
+    """
+    # Use provided username or default (matching C# implementation)
+    username = duo_uname or DEFAULT_DUO_USERNAME
+    
+    # 1) state
+    state = _random_state()
+    request.session["duo_state"] = state
+    
+    # 2) request JWT for Duo authorize
+    claims = {
+        "iss": DUO_CLIENT_ID,                           # Required
+        "aud": f"https://{DUO_API_HOST}",               # Required
+        "exp": _now_utc() + 5 * 60,                     # 5 minutes
+        # Duo requires these inside the JWT body:
+        "client_id": DUO_CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid",
+        "state": state,
+        "duo_uname": username,                        
+    }
+    request_jwt = jwt.encode(claims, DUO_SECRET, algorithm="HS256")
+    
+    # 3) redirect to Duo
+    url = (
+        f"https://{DUO_API_HOST}/oauth/v1/authorize"
+        f"?request={request_jwt}&client_id={DUO_CLIENT_ID}&response_type=code"
+    )
+    
+    return RedirectResponse(url, status_code=307)
+
+@app.get("/auth/duocallback")
+def duo_callback(request: Request, 
+                 code: Optional[str] = None, 
+                 state: Optional[str] = None,
+                 duo_uname: Optional[str] = None):
+    """
+    Exchanges authorization code for tokens. Validates id_token and creates/finds a local user.
+    """
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing 'code'")
+    if not state:
+        raise HTTPException(status_code=400, detail="Missing 'state'")
+    
+    stored_state = request.session.get("duo_state")
+    if not stored_state or stored_state != state:
+        raise HTTPException(status_code=400, detail="Invalid state parameter")
+    
+    # 1) client_assertion JWT
+    client_assertion_claims = {
+        "iss": DUO_CLIENT_ID,
+        "sub": DUO_CLIENT_ID,
+        "aud": f"https://{DUO_API_HOST}/oauth/v1/token",
+        "exp": _now_utc() + 5 * 60,
+        "jti": secrets.token_hex(16),
+    }
+    client_assertion = jwt.encode(client_assertion_claims, DUO_SECRET, algorithm="HS256")
+    
+    # 2) token exchange
+    token_url = f"https://{DUO_API_HOST}/oauth/v1/token"
+    form = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+        "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+        "client_assertion": client_assertion,
+    }
+    
+    try:
+        r = requests.post(token_url, data=form, timeout=10)
+        r.raise_for_status()
+    except requests.RequestException as ex:
+        raise HTTPException(status_code=502, detail=f"Error communicating with Duo: {ex}")
+    
+    try:
+        token_resp = TokenResponseDUO(**r.json())
+    except Exception:
+        raise HTTPException(status_code=502, detail="Bad token response from Duo")
+    
+    # 3) id_token validation / parse
+    options = {"verify_signature": False, "verify_aud": False, "verify_iss": False}
+    
+    try:
+        decoded = jwt.decode(token_resp.id_token, options=options)
+    except Exception as ex:
+        raise HTTPException(status_code=400, detail=f"Invalid id_token: {ex}")
+    
+    user_id = decoded.get("sub")
+    username = decoded.get("preferred_username") or user_id
+    
+    # Store user info in session
+    request.session["duo_authenticated"] = True
+    request.session["duo_user_id"] = user_id
+    request.session["duo_username"] = username
+    request.session["current_user"] = username
+    
+    # Store user info in session
+    request.session["duo_authenticated"] = True
+    request.session["duo_user_id"] = user_id
+    request.session["duo_username"] = username
+    request.session["current_user"] = username
+    
+    # Redirect to frontend with success parameters
+    frontend_success_url = f"{FRONTEND_URL}/duo-success"
+    return RedirectResponse(f"{frontend_success_url}?user={username}&authenticated=true")
+
+@app.get("/auth/duo-status")
+def get_duo_status(request: Request):
+    """
+    Check if user is authenticated via Duo
+    """
+    if request.session.get("duo_authenticated"):
+        return DuoUserInfo(
+            userId=request.session.get("duo_user_id"),
+            username=request.session.get("duo_username"),
+            authenticated=True
+        )
+    else:
+        raise HTTPException(status_code=401, detail="Not authenticated via Duo")
+
+@app.post("/auth/duo-logout")
+def duo_logout(request: Request):
+    """
+    Logout from Duo authentication
+    """
+    request.session.pop("duo_authenticated", None)
+    request.session.pop("duo_user_id", None)
+    request.session.pop("duo_username", None)
+    request.session.pop("current_user", None)
+    request.session.pop("duo_state", None)
+    
+    return {"message": "Logged out successfully"}
 
 @app.post("/join", response_model=JoinProjectResponse)
 async def join_project(request: JoinProjectRequest, 
@@ -779,7 +966,6 @@ async def delete_uploaded_document(
         logger.error(f"Error deleting document: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Email Invitation endpoints
 @app.post("/projects/{project_id}/invite", response_model=InviteResponse)
 async def invite_to_project(
     project_id: str,

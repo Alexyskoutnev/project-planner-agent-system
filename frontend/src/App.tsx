@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { getCurrentUser, fetchUserAttributes, signOut } from 'aws-amplify/auth';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ProjectRoom } from './components/ProjectRoom';
 import { ProjectLanding } from './components/ProjectLanding';
-// import { Login } from './components/Login';
+import { DuoLogin } from './components/DuoLogin';
+import { DuoSuccess } from './components/DuoSuccess';
 import { api } from './services/api';
 import './App.css';
 
@@ -12,6 +12,7 @@ function App() {
   const [userName, setUserName] = useState<string | undefined>();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [currentRoute, setCurrentRoute] = useState<string>('/');
 
   const handleJoin = (id: string, user?: string) => {
     setProjectId(id);
@@ -29,8 +30,16 @@ function App() {
         await api.cleanupProjectSessions(currentProjectId);
       }
 
-      // Sign out from Cognito
-      await signOut();
+      // Sign out from Duo
+      try {
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        await fetch(`${API_BASE_URL}/auth/duo-logout`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch (duoError) {
+        console.error('Error during Duo signout:', duoError);
+      }
     } catch (error) {
       console.error('Error during signout:', error);
     } finally {
@@ -47,16 +56,46 @@ function App() {
   };
 
   useEffect(() => {
+    // Handle routing
+    const path = window.location.pathname;
+    
+    if (path === '/duo-success') {
+      setCurrentRoute('/duo-success');
+    } else {
+      setCurrentRoute('/');
+    }
+    
     // Check if user is already authenticated
     const checkAuthState = async () => {
       try {
-        const current = await getCurrentUser();
-        const attrs = await fetchUserAttributes();
-        const cognitoUserLike = { ...current, attributes: attrs } as any;
-        setUser(cognitoUserLike);
-        setUserName(attrs.email || current.username);
+        // First check Duo authentication
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        const duoResponse = await fetch(`${API_BASE_URL}/auth/duo-status`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        
+        if (duoResponse.ok) {
+          const duoUser = await duoResponse.json();
+          const userObj = {
+            userId: duoUser.userId,
+            username: duoUser.username,
+            attributes: { email: duoUser.userId }
+          };
+          setUser(userObj);
+          setUserName(duoUser.username);
+          setLoading(false);
+          return;
+        } else if (duoResponse.status !== 401) {
+          // Only log non-401 errors (401 is expected when not authenticated)
+          console.warn('Duo auth check failed:', duoResponse.status, duoResponse.statusText);
+        }
+
+        // No other authentication method available
+        setUser(null);
       } catch (error) {
-        // User is not authenticated
+        // Network errors or other issues (not 401 unauthorized)
+        console.warn('Auth check error:', error);
         setUser(null);
       } finally {
         setLoading(false);
@@ -99,10 +138,16 @@ function App() {
       </div>
     );
   }
-  // TODO: Add login back in
-  // if (!user) {
-  //   return <Login onLogin={handleLogin} />;
-  // }
+
+  // Handle Duo success route
+  if (currentRoute === '/duo-success') {
+    return <DuoSuccess onLogin={handleLogin} />;
+  }
+
+  // Require authentication
+  if (!user) {
+    return <DuoLogin onLogin={handleLogin} />;
+  }
 
   if (!projectId) {
     return <ProjectLanding onJoin={handleJoin} />;
