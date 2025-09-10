@@ -33,8 +33,8 @@ npm install
 
 # Set production environment variables
 export NODE_ENV=production
-# For production, don't use /api prefix since nginx proxies directly
-export REACT_APP_API_URL=""
+# Copy production environment file
+cp ../.env.production .env.production
 
 # Build the frontend with production optimizations
 echo "🔨 Building production bundle..."
