@@ -1,7 +1,7 @@
 # Project Planner - Quick Reference Commands
 
 ## SSH Connection
-ssh -i naii-project-planning-app-key.pem ubuntu@54.226.226.2
+ssh -i naii-project-planning-app-key.pem ubuntu@172.28.3.20
 
 ## Service Management
 # Restart services
