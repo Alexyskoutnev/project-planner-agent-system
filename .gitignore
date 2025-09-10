@@ -49,10 +49,8 @@ naii_agents/__pycache__/
 frontend/node_modules/
 frontend/dist/
 frontend/build/
-frontend/public/
+# Components should be tracked, only ignore specific asset directories
 frontend/src/assets/
-frontend/src/components/
-frontend/src/pages/
 
 # ---- Claude AI IDE files ----
 .claude/
