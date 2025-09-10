@@ -33,8 +33,8 @@ npm install
 
 # Set production environment variables
 export NODE_ENV=production
-# Copy production environment file
-cp ../.env.production .env.production
+# # Copy production environment file
+# cp ../.env.production .env.production
 
 # Build the frontend with production optimizations
 echo "🔨 Building production bundle..."
