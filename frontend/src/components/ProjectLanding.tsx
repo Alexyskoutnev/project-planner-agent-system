@@ -4,12 +4,13 @@ import { Project } from '../types';
 import './ProjectLanding.css';
 
 interface ProjectLandingProps {
-  onJoin: (projectId: string, userName?: string) => void;
+  onJoin: (projectId: string) => void;
+  onSignOut?: () => void;
+  user?: any;
 }
 
-export function ProjectLanding({ onJoin }: ProjectLandingProps) {
+export function ProjectLanding({ onJoin, onSignOut, user }: ProjectLandingProps) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [userName, setUserName] = useState('');
   const [newProjectId, setNewProjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export function ProjectLanding({ onJoin }: ProjectLandingProps) {
       setLoading(true);
       await api.joinProject({ 
         projectId: newProjectId.trim(), 
-        userName: userName.trim() || undefined 
+        userName: user?.username 
       });
       // Just create the project, don't auto-join
       setNewProjectId('');
@@ -58,15 +59,10 @@ export function ProjectLanding({ onJoin }: ProjectLandingProps) {
   };
 
   const handleJoinProject = async (projectId: string) => {
-    if (!userName.trim()) {
-      setError('Please enter your name before joining a project');
-      return;
-    }
-
     try {
       setLoading(true);
-      await api.joinProject({ projectId, userName: userName.trim() });
-      onJoin(projectId, userName.trim());
+      await api.joinProject({ projectId, userName: user?.username });
+      onJoin(projectId);
     } catch (err) {
       setError(`Failed to join project: ${projectId}`);
       console.error('Error joining project:', err);
@@ -99,7 +95,14 @@ export function ProjectLanding({ onJoin }: ProjectLandingProps) {
   return (
     <div className="project-landing-container">
       <div className="project-landing">
-        <h1>NAI Project Planning</h1>
+        <div className="landing-header">
+          <h1>NAI Project Planning</h1>
+          {onSignOut && (
+            <button onClick={onSignOut} className="logout-button">
+              Sign Out
+            </button>
+          )}
+        </div>
 
         {error && (
           <div className="error-message">
@@ -108,17 +111,12 @@ export function ProjectLanding({ onJoin }: ProjectLandingProps) {
           </div>
         )}
 
-        {/* User Name Input */}
+        {/* Show current user */}
         <div className="user-section">
-          <label htmlFor="userName">Your Name</label>
-          <input
-            id="userName"
-            type="text"
-            value={userName}
-            onChange={(e) => setUserName(e.target.value)}
-            placeholder="Enter your name"
-            className="user-input"
-          />
+          <div className="current-user">
+            <span className="user-label">Signed in as:</span>
+            <span className="user-name">{user?.username}</span>
+          </div>
         </div>
 
         {/* Create New Project */}

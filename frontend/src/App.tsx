@@ -14,9 +14,10 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [currentRoute, setCurrentRoute] = useState<string>('/');
 
-  const handleJoin = (id: string, user?: string) => {
+  const handleJoin = (id: string) => {
     setProjectId(id);
-    setUserName(user);
+    // Use the authenticated user's name automatically
+    setUserName(user?.username);
   };
 
   const handleSignOut = async () => {
@@ -43,7 +44,8 @@ function App() {
     } catch (error) {
       console.error('Error during signout:', error);
     } finally {
-      // Always clear local state even if API calls fail
+      // Always clear local state and localStorage even if API calls fail
+      localStorage.removeItem('duo_user');
       setProjectId(null);
       setUserName(undefined);
       setUser(null);
@@ -53,6 +55,8 @@ function App() {
   const handleLogin = (cognitoUser: any) => {
     setUser(cognitoUser);
     setUserName(cognitoUser.attributes?.email || cognitoUser.username);
+    // Save to localStorage for persistence
+    localStorage.setItem('duo_user', JSON.stringify(cognitoUser));
   };
 
   useEffect(() => {
@@ -68,7 +72,19 @@ function App() {
     // Check if user is already authenticated
     const checkAuthState = async () => {
       try {
-        // First check Duo authentication
+        // First try to load from localStorage as backup
+        const savedUser = localStorage.getItem('duo_user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            setUser(parsedUser);
+            setUserName(parsedUser.username);
+          } catch (e) {
+            localStorage.removeItem('duo_user');
+          }
+        }
+
+        // Then check with server to verify session is still valid
         const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
         const duoResponse = await fetch(`${API_BASE_URL}/auth/duo-status`, {
           method: 'GET',
@@ -84,6 +100,8 @@ function App() {
           };
           setUser(userObj);
           setUserName(duoUser.username);
+          // Save to localStorage for faster loading next time
+          localStorage.setItem('duo_user', JSON.stringify(userObj));
           setLoading(false);
           return;
         } else if (duoResponse.status !== 401) {
@@ -91,12 +109,16 @@ function App() {
           console.warn('Duo auth check failed:', duoResponse.status, duoResponse.statusText);
         }
 
-        // No other authentication method available
+        // If server check fails, clear localStorage and set user to null
+        localStorage.removeItem('duo_user');
         setUser(null);
       } catch (error) {
         // Network errors or other issues (not 401 unauthorized)
         console.warn('Auth check error:', error);
-        setUser(null);
+        // Keep localStorage user if server is unreachable, otherwise clear
+        if (!localStorage.getItem('duo_user')) {
+          setUser(null);
+        }
       } finally {
         setLoading(false);
       }
@@ -150,7 +172,7 @@ function App() {
   }
 
   if (!projectId) {
-    return <ProjectLanding onJoin={handleJoin} />;
+    return <ProjectLanding onJoin={handleJoin} onSignOut={handleSignOut} user={user} />;
   }
 
   return (
