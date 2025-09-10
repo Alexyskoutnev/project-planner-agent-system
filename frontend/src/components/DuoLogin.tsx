@@ -19,7 +19,7 @@ export function DuoLogin({ onLogin }: DuoLoginProps) {
 
   const checkDuoAuthStatus = useCallback(async () => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${API_BASE_URL}/auth/duo-status`, {
         method: 'GET',
         credentials: 'include', // Include cookies for session
@@ -76,7 +76,7 @@ export function DuoLogin({ onLogin }: DuoLoginProps) {
     
     try {
       // Redirect to Duo login with the entered username
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '';
       window.location.href = `${API_BASE_URL}/start-duo-login?duo_uname=${encodeURIComponent(username.trim())}`;
     } catch (err: any) {
       setError(err.message || 'Failed to initiate Duo login');
@@ -86,7 +86,7 @@ export function DuoLogin({ onLogin }: DuoLoginProps) {
 
   const handleDuoLogout = async () => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '';
       const response = await fetch(`${API_BASE_URL}/auth/duo-logout`, {
         method: 'POST',
         credentials: 'include',

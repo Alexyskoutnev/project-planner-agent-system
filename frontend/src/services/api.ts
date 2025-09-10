@@ -10,8 +10,7 @@ import {
   UploadedDocument
 } from '../types';
 
-// const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 class RealAPI {
   private sessionId: string | null = null;

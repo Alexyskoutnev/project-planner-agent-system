@@ -33,7 +33,7 @@ function App() {
 
       // Sign out from Duo
       try {
-        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        const API_BASE_URL = process.env.REACT_APP_API_URL || '';
         await fetch(`${API_BASE_URL}/auth/duo-logout`, {
           method: 'POST',
           credentials: 'include',
@@ -85,7 +85,7 @@ function App() {
         }
 
         // Then check with server to verify session is still valid
-        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        const API_BASE_URL = process.env.REACT_APP_API_URL || '';
         const duoResponse = await fetch(`${API_BASE_URL}/auth/duo-status`, {
           method: 'GET',
           credentials: 'include',
