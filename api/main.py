@@ -51,6 +51,9 @@ console_handler.setFormatter(log_formatter)
 
 # File handler - log to api.log in the project directory
 log_file = os.path.join(os.path.dirname(__file__), '..', 'api.log')
+# remove the old log file
+if os.path.exists(log_file):
+    os.remove(log_file)
 file_handler = logging.FileHandler(log_file)
 file_handler.setLevel(logging.DEBUG)  # More detailed logging to file
 file_handler.setFormatter(log_formatter)
