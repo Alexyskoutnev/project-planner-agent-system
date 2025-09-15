@@ -37,12 +37,33 @@ import os
 
 from database.database import ProjectDatabase
 
-logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+# Configure logging with both console and file handlers
+log_formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+# Create logger
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Console handler
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(log_formatter)
+
+# File handler - log to api.log in the project directory
+log_file = os.path.join(os.path.dirname(__file__), '..', 'api.log')
+file_handler = logging.FileHandler(log_file)
+file_handler.setLevel(logging.DEBUG)  # More detailed logging to file
+file_handler.setFormatter(log_formatter)
+
+# Add handlers to logger
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
+# Set root logger level and add handlers for other modules
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+root_logger.addHandler(console_handler)
+root_logger.addHandler(file_handler)
 
 load_dotenv()
 
@@ -63,7 +84,8 @@ else:
 # Default Duo username (from C# code)
 DEFAULT_DUO_USERNAME = "ddicocco"
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+print(f"OPENAI_API_KEY: {OPENAI_API_KEY}")
 if not OPENAI_API_KEY:
     logger.error("OpenAI API key not found. Please set OPENAI_API_KEY environment variable.")
     raise ValueError("OpenAI API key is required")
@@ -268,35 +290,50 @@ def send_invitation_email(email: str,
 async def run_agent_conversation(message: str, project_id: str) -> str:
     """Run the agent conversation and return the response"""
     try:
+        logger.info(f"Starting agent conversation for project {project_id}")
+        logger.debug(f"Input message: {message}")
+
         # Set project context for database-aware tools
         set_project_context(project_id, db)
-        
+        logger.debug(f"Set project context for project {project_id}")
+
         # Create session for this project
         session = SQLiteSession(f"fastapi-{project_id}", "nai_conversations.sqlite")
-        
+        logger.debug(f"Created SQLite session: fastapi-{project_id}")
+
         # Run the agent system
+        logger.info(f"Running product manager agent for project {project_id}")
         result = await Runner.run(
             starting_agent=product_manager,
             input=message,
             session=session,
         )
-        
+
+        logger.info(f"Agent conversation completed for project {project_id}")
+        logger.debug(f"Agent result type: {type(result)}")
+        logger.debug(f"Agent final output length: {len(result.final_output) if result.final_output else 0}")
+
         return result.final_output or "I apologize, but I wasn't able to process your request. Could you please try rephrasing?"
-        
+
     except Exception as e:
-        logger.error(f"Error running agents: {e}")
+        logger.error(f"Error running agents for project {project_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Agent processing error: {str(e)}")
 
 def get_document_content(project_id: str) -> str:
     """Get document content from database"""
     try:
         document_id = f"doc_{project_id}"
+        logger.debug(f"Getting document content for document_id: {document_id}")
         document = db.documents.get(document_id)
+
         if document and document.content.strip():
+            logger.debug(f"Document found with content length: {len(document.content)}")
             return document.content
+
+        logger.debug(f"No document content found for project {project_id}")
         return ""
     except Exception as e:
-        logger.error(f"Error getting document for project {project_id}: {e}")
+        logger.error(f"Error getting document for project {project_id}: {e}", exc_info=True)
         return ""
 
 def cleanup_chat_sessions_for_project(project_id: str):
@@ -578,22 +615,40 @@ async def chat(request: ChatRequest,
         db.sessions.update_activity(session_id)
         
         # Get document content before processing
+        logger.info(f"Getting document content before agent processing for project {request.projectId}")
         doc_before = get_document_content(request.projectId)
-        
+        logger.info(f"Document before processing - length: {len(doc_before)}, preview: {doc_before[:100]}...")
+
         # Create conversation if needed and add user message
         conversation_id = f"conv_{request.projectId}_{session_id}"
+        logger.debug(f"Using conversation_id: {conversation_id}")
         if not db.conversations.get(conversation_id):
+            logger.debug(f"Creating new conversation: {conversation_id}")
             db.conversations.create(conversation_id, request.projectId, session_id)
         db.conversations.add_message(conversation_id, "user", request.message)
-        
+
         # Process message through agent system
+        logger.info(f"Processing message through agent system for project {request.projectId}")
         ai_response = await run_agent_conversation(request.message, request.projectId)
-        
+        logger.info(f"Agent response received - length: {len(ai_response)}")
+
         # Add AI response to history
         db.conversations.add_message(conversation_id, "assistant", ai_response)
-        
+
         # Get document content after processing
+        logger.info(f"Getting document content after agent processing for project {request.projectId}")
         doc_after = get_document_content(request.projectId)
+        logger.info(f"Document after processing - length: {len(doc_after)}, preview: {doc_after[:100]}...")
+
+        # Log document changes
+        if doc_after != doc_before:
+            logger.info(f"Document changed for project {request.projectId}:")
+            logger.info(f"  Before length: {len(doc_before)}")
+            logger.info(f"  After length: {len(doc_after)}")
+            logger.debug(f"  Before content: {doc_before}")
+            logger.debug(f"  After content: {doc_after}")
+        else:
+            logger.info(f"Document unchanged for project {request.projectId}")
         
         # Get active users
         active_sessions = db.sessions.get_active_by_project(request.projectId)
