@@ -87,8 +87,6 @@ app = FastAPI(
 app.add_middleware(SessionMiddleware, 
                    secret_key=os.getenv("SESSION_SECRET", "dev-session-secret-for-duo"))
 
-# CORS middleware for frontend
-# Environment-aware CORS origins
 allowed_origins = [
     "http://localhost:3000",      # React dev server
     "http://127.0.0.1:3000",     # React dev server alternative
@@ -96,7 +94,6 @@ allowed_origins = [
     "http://127.0.0.1:8000",     # Development API testing alternative
 ]
 
-# Add production origins
 if ENVIRONMENT == "production":
     allowed_origins.extend([
         "https://naii-project-planner.naii.com",

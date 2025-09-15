@@ -28,6 +28,7 @@ class RealAPI {
       method: 'POST',
       headers,
       body: JSON.stringify(request),
+      signal: AbortSignal.timeout(180000), // 3 minutes
     });
 
     if (!response.ok) {
