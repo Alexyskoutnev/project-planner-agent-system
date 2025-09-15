@@ -85,7 +85,7 @@ else:
 DEFAULT_DUO_USERNAME = "ddicocco"
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-print(f"OPENAI_API_KEY: {OPENAI_API_KEY}")
+logger.info(f"OPENAI_API_KEY: {OPENAI_API_KEY}")
 if not OPENAI_API_KEY:
     logger.error("OpenAI API key not found. Please set OPENAI_API_KEY environment variable.")
     raise ValueError("OpenAI API key is required")
