@@ -35,7 +35,7 @@
 
 .documents-toggle {
   padding: 0.5rem 1rem;
-  background: #6c757d;
+  background: #007aff;
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -43,7 +43,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 122, 255, 0.3);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -51,19 +51,19 @@
 }
 
 .documents-toggle:hover {
-  background: #5a6268;
+  background: #0056b3;
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.4);
 }
 
 .documents-toggle.active {
-  background: #28a745;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: #0056b3;
+  box-shadow: 0 1px 3px rgba(0, 122, 255, 0.3);
 }
 
 .documents-toggle.active:hover {
-  background: #218838;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  background: #004494;
+  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.4);
 }
 
 .loading-indicator {

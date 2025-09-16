@@ -123,7 +123,7 @@ class EmailService:
         Returns:
             True if email was sent successfully, False otherwise
         """
-        base_url = base_url or os.getenv("BASE_URL", "http://54.226.226.2")
+        base_url = base_url or os.getenv("BASE_URL", "https://naii-project-planner.naii.com")
         invitation_url = f"{base_url}/"
         
         # Create email content
@@ -139,12 +139,12 @@ class EmailService:
               <p>You've been invited{inviter_text} to collaborate on the project "<strong>{project_id}</strong>".</p>
               <p>Click the button below to get started:</p>
               <div style="text-align: center; margin: 30px 0;">
-                <a href="{invitation_url}" 
-                   style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
-                          color: white; 
-                          padding: 12px 24px; 
-                          text-decoration: none; 
-                          border-radius: 8px; 
+                <a href="{invitation_url}"
+                   style="background: linear-gradient(135deg, #007aff 0%, #0056b3 100%);
+                          color: white;
+                          padding: 12px 24px;
+                          text-decoration: none;
+                          border-radius: 8px;
                           display: inline-block;
                           font-weight: bold;">
                   Get Started

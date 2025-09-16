@@ -20,6 +20,12 @@ function App() {
     setUserName(user?.username);
   };
 
+  const handleBackToLanding = async () => {
+    // Simply clear the project ID to go back to landing
+    setProjectId(null);
+    setUserName(undefined);
+  };
+
   const handleSignOut = async () => {
     const currentProjectId = projectId;
     try {
@@ -177,7 +183,12 @@ function App() {
 
   return (
     <ProjectProvider>
-      <ProjectRoom projectId={projectId} userName={userName} onSignOut={handleSignOut} />
+      <ProjectRoom
+        projectId={projectId}
+        userName={userName}
+        onSignOut={handleSignOut}
+        onBackToLanding={handleBackToLanding}
+      />
     </ProjectProvider>
   );
 }

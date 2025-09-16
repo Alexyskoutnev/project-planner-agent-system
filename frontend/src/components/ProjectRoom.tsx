@@ -11,9 +11,10 @@ interface ProjectRoomProps {
   projectId: string;
   userName?: string;
   onSignOut?: () => void;
+  onBackToLanding?: () => void;
 }
 
-export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps) {
+export function ProjectRoom({ projectId, userName, onSignOut, onBackToLanding }: ProjectRoomProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -130,10 +131,10 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
 
   const handleSignOut = async () => {
     if (isSigningOut) return;
-    
+
     const confirmed = window.confirm('Are you sure you want to sign out? You will leave this project.');
     if (!confirmed) return;
-    
+
     setIsSigningOut(true);
     try {
       if (onSignOut) {
@@ -141,6 +142,27 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
       }
     } catch (error) {
       console.error('Error during signout:', error);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  const handleBackToLanding = async () => {
+    if (isSigningOut) return;
+
+    const confirmed = window.confirm('Are you sure you want to leave this project? You can rejoin from the main menu.');
+    if (!confirmed) return;
+
+    setIsSigningOut(true);
+    try {
+      // Leave the current project
+      await api.leaveProject();
+
+      if (onBackToLanding) {
+        await onBackToLanding();
+      }
+    } catch (error) {
+      console.error('Error leaving project:', error);
     } finally {
       setIsSigningOut(false);
     }
@@ -194,19 +216,19 @@ export function ProjectRoom({ projectId, userName, onSignOut }: ProjectRoomProps
           </div>
           
           <div className="header-actions">
-            <button 
-              onClick={() => setShowInviteModal(true)} 
+            <button
+              onClick={() => setShowInviteModal(true)}
               className="invite-button"
               title="Invite someone to this project"
             >
 Invite
             </button>
-            <button 
-              onClick={handleSignOut} 
-              className="sign-out-button"
+            <button
+              onClick={handleBackToLanding}
+              className="back-to-landing-button"
               disabled={isSigningOut}
             >
-              {isSigningOut ? 'Signing Out...' : 'Back to Landing'}
+              {isSigningOut ? 'Leaving Project...' : 'Back to Landing'}
             </button>
           </div>
         </div>

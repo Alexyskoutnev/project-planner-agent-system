@@ -1,6 +1,6 @@
 :root {
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
+  --primary-color: #007aff;
+  --primary-hover: #0056b3;
   --success-color: #10b981;
   --success-hover: #059669;
   --danger-color: #ef4444;
@@ -125,7 +125,7 @@
 .form-group input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
 }
 
 .form-group input:disabled {
@@ -242,7 +242,7 @@
 
 .text-button:hover {
   color: var(--primary-hover);
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(0, 122, 255, 0.05);
 }
 
 .forgot-password {
