@@ -20,8 +20,27 @@ def get_project_context():
 @function_tool
 def write_doc(content: str) -> str:
     """
-    write the entire project document with new content.
-    This is used to update the plan with a clean, structured format.
+    OVERWRITE the ENTIRE project document for the current project with `content`.
+    Creates the document if it does not exist.
+
+    ✅ When to use:
+    - The user says: "replace", "rewrite", "set", "update", or "write" the project document.
+    - The user provides new full text for the doc on the frontend chat interface.
+
+    ❌ If you "the Agent" need more information about the saved document, call `read_current_doc()`.
+
+    🧠 Model usage notes:
+    1) Provide the COMPLETE desired document in `content` (this is a full replacement, not an append).
+    2) After a successful update, IMMEDIATELY confirm to the user by:
+       - Calling `verify_document_saved()` (optional but recommended), then
+       - Calling `read_current_doc()` and RETURNING its content verbatim to the user (no summary unless asked).
+    3) If no project context is available, return the error string to the user.
+
+    Arguments:
+    - content (str): The full body of the document to store for the current project.
+
+    Returns:
+    - str: "Document updated successfully." on success, otherwise an error message string.
     """
     try:
         project_id, db = get_project_context()
