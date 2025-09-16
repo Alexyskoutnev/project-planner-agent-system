@@ -6,6 +6,7 @@ import threading
 # Global project context for agents - thread-safe storage
 _project_context = threading.local()
 
+
 def set_project_context(project_id: str, db_instance):
     """Set the current project context for the agents"""
     _project_context.project_id = project_id
@@ -182,3 +183,4 @@ def read_doc() -> str:
     except Exception as e:
         logging.error(f"Error reading document for display: {e}")
         return "# No document available"
+

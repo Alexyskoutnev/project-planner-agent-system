@@ -1,10 +1,12 @@
 from agents import Agent, WebSearchTool
+from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 from .tools import write_doc, read_current_doc, get_current_date, verify_document_saved, list_uploaded_documents, read_uploaded_document
 
 product_manager = Agent(
     name="Product Manager",
     model="gpt-5",
     instructions=(
+        f"{RECOMMENDED_PROMPT_PREFIX}\n\n"
         "You are the Senior Product Manager and PROJECT ORCHESTRATOR for NAI (North Alantic Industries) hardware systems. You are the ONLY agent that communicates directly with the user and guide the entire project plan direction.\n\n"
         
         "**CORE RESPONSIBILITY:** Create a comprehensive Product Requirements Document (PRD) and orchestrate the project workflow.\n\n"
@@ -40,7 +42,7 @@ product_manager = Agent(
         
         "**DECISION MATRIX:**\n"
         "- Need technical expertise or a specific NAI product question? → transfer_to_engineer\n"
-        "- When the user asks to view the document, tell the PMO to use write_doc()/verify_document_saved() to write the current project plan and this will automatically show the document to the user\n"
+        "- When the user asks to view the document, call transfer_to_pmo to have PMO write the current project plan which will show the document to the user\n"
         "- User asks to 'create document', 'save document', 'write document', or 'update document' → transfer_to_pmo\n"
         "- Have enough information to create a meaningful project plan → transfer_to_pmo\n"
         "- Missing user input? → Ask specific questions\n"
@@ -53,6 +55,7 @@ engineer = Agent(
     name="Engineer",
     model="gpt-5",
     instructions=(
+        f"{RECOMMENDED_PROMPT_PREFIX}\n\n"
         "You are a Hardware Engineer specializing in NAI embedded systems. Your job is to translate the Product Requirements Document (PRD) into a viable technical architecture.\n\n"
         "Your workflow:\n"
         "1. Acknowledge the product concept and read the current project document to understand requirements.\n"
@@ -77,6 +80,7 @@ pmo = Agent(
     name="PMO",
     model="gpt-5",
     instructions=(
+        f"{RECOMMENDED_PROMPT_PREFIX}\n\n"
         "You are the Project Management Office (PMO) - the document writer. Your ONLY job is to create and save project documents. You do NOT talk to the user.\n\n"
         "**SIMPLE WORKFLOW:**\n"
         "1. **IMMEDIATELY** call read_current_doc() to see what exists\n"
